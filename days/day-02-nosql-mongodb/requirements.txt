@@ -1,0 +1,8 @@
+# Day 2: NoSQL Databases - MongoDB Patterns
+# Python dependencies
+
+# MongoDB driver for Python
+pymongo>=4.6.0
+
+# Optional: For better decimal handling
+# Note: Python's built-in decimal module is used in the exercises

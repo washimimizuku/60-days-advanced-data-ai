@@ -1,0 +1,47 @@
+# Day 44: LLM Training Stages - Requirements
+
+# Core Deep Learning
+torch>=2.0.0
+torchvision>=0.15.0
+transformers>=4.30.0
+accelerate>=0.20.0
+
+# Distributed Training
+deepspeed>=0.9.0
+fairscale>=0.4.0
+
+# Parameter-Efficient Fine-tuning
+peft>=0.4.0
+loralib>=0.1.1
+
+# RLHF and Alignment
+trl>=0.4.0
+datasets>=2.12.0
+
+# Experiment Tracking
+wandb>=0.15.0
+tensorboard>=2.13.0
+
+# Data Processing
+numpy>=1.21.0
+pandas>=1.3.0
+tokenizers>=0.13.0
+
+# Optimization and Utilities
+scipy>=1.7.0
+scikit-learn>=1.0.0
+tqdm>=4.64.0
+
+# Configuration Management
+hydra-core>=1.3.0
+omegaconf>=2.3.0
+
+# Testing and Development
+pytest>=7.0.0
+pytest-cov>=4.0.0
+black>=22.0.0
+flake8>=5.0.0
+
+# Jupyter (for interactive development)
+jupyter>=1.0.0
+ipykernel>=6.0.0

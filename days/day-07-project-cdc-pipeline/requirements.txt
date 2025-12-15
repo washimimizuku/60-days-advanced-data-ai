@@ -1,0 +1,28 @@
+# CDC Pipeline Project Requirements
+
+# Core dependencies
+psycopg2-binary==2.9.7
+kafka-python==2.0.2
+confluent-kafka==2.3.0
+avro-python3==1.11.2
+
+# Data generation
+faker==19.6.2
+prometheus-client==0.17.1
+
+# Monitoring and observability
+requests==2.31.0
+pyyaml==6.0.1
+
+# Development and testing
+pytest==7.4.2
+pytest-asyncio==0.21.1
+pytest-mock==3.11.1
+black==23.7.0
+flake8==6.0.0
+
+# Optional: Jupyter for analysis
+jupyter==1.0.0
+pandas==2.1.1
+matplotlib==3.7.2
+seaborn==0.12.2

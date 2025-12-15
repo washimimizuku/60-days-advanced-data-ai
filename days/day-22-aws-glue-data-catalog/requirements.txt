@@ -1,0 +1,25 @@
+# Day 22: AWS Glue & Data Catalog - Requirements
+# AWS SDK and services
+boto3==1.34.0
+botocore==1.34.0
+
+# Data processing
+pandas==2.1.3
+numpy==1.24.3
+
+# AWS Glue development
+awsglue-libs==4.0.0
+pyspark==3.4.1
+
+# Development and testing
+pytest==7.4.3
+moto==4.2.14
+localstack-client==2.5
+
+# Configuration and utilities
+python-dotenv==1.0.0
+click==8.1.7
+pyyaml==6.0.1
+
+# Monitoring and logging
+boto3-stubs[glue,athena,s3]==1.34.0

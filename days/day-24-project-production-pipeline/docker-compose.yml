@@ -1,0 +1,115 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:13
+    environment:
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+      - POSTGRES_DB=airflow
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  airflow-webserver:
+    build: ./docker/airflow
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      - AIRFLOW__CELERY__RESULT_BACKEND=redis://redis:6379/0
+      - AIRFLOW__CELERY__BROKER_URL=redis://redis:6379/0
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./dbt:/opt/dbt
+      - ./great_expectations:/opt/great_expectations
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    command: webserver
+
+  airflow-scheduler:
+    build: ./docker/airflow
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      - AIRFLOW__CELERY__RESULT_BACKEND=redis://redis:6379/0
+      - AIRFLOW__CELERY__BROKER_URL=redis://redis:6379/0
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./dbt:/opt/dbt
+      - ./great_expectations:/opt/great_expectations
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    command: scheduler
+
+  airflow-worker:
+    build: ./docker/airflow
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+      - AIRFLOW__CELERY__RESULT_BACKEND=redis://redis:6379/0
+      - AIRFLOW__CELERY__BROKER_URL=redis://redis:6379/0
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./dbt:/opt/dbt
+      - ./great_expectations:/opt/great_expectations
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    command: celery worker
+
+  localstack:
+    image: localstack/localstack:3.0
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3,glue,kinesis,lambda
+      - DEBUG=1
+    volumes:
+      - "./scripts/init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh"
+
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+
+  grafana:
+    image: grafana/grafana:10.0.0
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - ./monitoring/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+      - grafana_data:/var/lib/grafana
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:

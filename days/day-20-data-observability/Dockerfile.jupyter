@@ -1,0 +1,21 @@
+FROM jupyter/scipy-notebook:latest
+
+USER root
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+USER jovyan
+
+# Install Python packages
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+# Copy notebooks and scripts
+COPY notebooks/ /home/jovyan/work/
+COPY *.py /home/jovyan/work/
+
+# Set working directory
+WORKDIR /home/jovyan/work

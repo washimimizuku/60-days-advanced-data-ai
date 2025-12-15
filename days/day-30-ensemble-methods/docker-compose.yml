@@ -1,0 +1,171 @@
+version: '3.8'
+
+services:
+  # PostgreSQL for model metadata and results
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: ensemble_db
+      POSTGRES_USER: ensemble_user
+      POSTGRES_PASSWORD: ensemble_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ensemble_user -d ensemble_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching and real-time features
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MLflow for experiment tracking
+  mlflow:
+    image: python:3.9-slim
+    ports:
+      - "5000:5000"
+    environment:
+      - MLFLOW_BACKEND_STORE_URI=postgresql://ensemble_user:ensemble_pass@postgres:5432/ensemble_db
+      - MLFLOW_DEFAULT_ARTIFACT_ROOT=/mlflow/artifacts
+    volumes:
+      - mlflow_artifacts:/mlflow/artifacts
+      - ./requirements.txt:/app/requirements.txt
+    working_dir: /app
+    command: >
+      bash -c "
+        pip install mlflow psycopg2-binary &&
+        mlflow server 
+          --backend-store-uri postgresql://ensemble_user:ensemble_pass@postgres:5432/ensemble_db
+          --default-artifact-root /mlflow/artifacts
+          --host 0.0.0.0
+          --port 5000
+      "
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Ensemble API Server
+  ensemble-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://ensemble_user:ensemble_pass@postgres:5432/ensemble_db
+      - REDIS_URL=redis://redis:6379
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    volumes:
+      - ./models:/app/models
+      - ./data:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mlflow:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Model Trainer Service
+  model-trainer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://ensemble_user:ensemble_pass@postgres:5432/ensemble_db
+      - REDIS_URL=redis://redis:6379
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - TRAINING_MODE=true
+    volumes:
+      - ./models:/app/models
+      - ./data:/app/data
+      - ./logs:/app/logs
+    command: python model_trainer.py
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mlflow:
+        condition: service_healthy
+
+  # Data Generator for Testing
+  data-generator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://ensemble_user:ensemble_pass@postgres:5432/ensemble_db
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - ./data:/app/data
+    command: python data_generator.py
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Prometheus for monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres_data:
+  redis_data:
+  mlflow_artifacts:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  default:
+    name: ensemble_network

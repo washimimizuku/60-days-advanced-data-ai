@@ -1,0 +1,49 @@
+# Day 21: Testing Strategies - Requirements
+# Core testing framework
+pytest==7.4.3
+pytest-cov==4.1.0
+pytest-xdist==3.3.1
+pytest-benchmark==4.0.0
+pytest-mock==3.12.0
+
+# Data processing and analysis
+pandas==2.1.3
+numpy==1.24.3
+scipy==1.11.4
+
+# Performance monitoring
+psutil==5.9.6
+memory-profiler==0.61.0
+
+# Code quality and linting
+flake8==6.1.0
+black==23.11.0
+isort==5.12.0
+bandit==1.7.5
+safety==2.3.5
+
+# Database connectivity
+psycopg2-binary==2.9.9
+sqlalchemy==2.0.23
+
+# Visualization and reporting
+matplotlib==3.8.2
+seaborn==0.13.0
+plotly==5.17.0
+
+# Configuration and utilities
+python-dotenv==1.0.0
+pyyaml==6.0.1
+click==8.1.7
+
+# Development and debugging
+ipython==8.17.2
+jupyter==1.0.0
+notebook==7.0.6
+
+# CI/CD and automation
+pre-commit==3.5.0
+tox==4.11.4
+
+# Optional: Great Expectations for data quality
+great-expectations==0.18.5

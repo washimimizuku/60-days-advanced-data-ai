@@ -1,0 +1,4 @@
+dbt-core==1.7.4
+dbt-postgres==1.7.4
+sqlfluff==2.3.5
+pre-commit==3.6.0

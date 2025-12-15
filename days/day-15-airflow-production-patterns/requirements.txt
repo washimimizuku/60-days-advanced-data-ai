@@ -1,0 +1,37 @@
+# Day 15: Airflow Production Patterns - Dependencies
+
+# Core Airflow
+apache-airflow==2.7.0
+apache-airflow-providers-postgres==5.7.1
+apache-airflow-providers-http==4.6.0
+apache-airflow-providers-ftp==3.5.1
+apache-airflow-providers-sftp==4.6.0
+
+# Database and Storage
+psycopg2-binary==2.9.9
+sqlalchemy==2.0.23
+redis==5.0.1
+
+# Data Processing
+pandas==2.1.4
+numpy==1.24.3
+
+# HTTP and API
+requests==2.31.0
+urllib3==2.1.0
+
+# Configuration and Utilities
+pyyaml==6.0.1
+python-dotenv==1.0.0
+jinja2==3.1.2
+
+# Monitoring and Alerting
+prometheus-client==0.19.0
+
+# Development and Testing
+pytest==7.4.3
+pytest-airflow==0.0.8
+faker==20.1.0
+
+# Security
+cryptography==41.0.7

@@ -1,0 +1,51 @@
+# Anomaly Detection Dependencies
+pandas>=2.0.0
+numpy>=1.24.0
+scikit-learn>=1.3.0
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Statistical Analysis
+scipy>=1.11.0
+statsmodels>=0.14.0
+
+# Deep Learning
+tensorflow>=2.13.0
+torch>=2.0.0
+pytorch-lightning>=2.0.0
+
+# Anomaly Detection Libraries
+pyod>=1.1.0
+isolation-forest>=0.1.0
+
+# Production ML
+mlflow>=2.5.0
+great-expectations>=0.17.0
+
+# API and Web
+fastapi>=0.100.0
+uvicorn>=0.23.0
+pydantic>=2.0.0
+streamlit>=1.25.0
+websockets>=11.0.0
+
+# Database and Storage
+psycopg2-binary>=2.9.0
+redis>=4.6.0
+influxdb-client>=1.37.0
+
+# Monitoring and Observability
+prometheus-client>=0.17.0
+grafana-api>=1.0.3
+alertmanager-api>=0.1.0
+
+# Streaming and Real-time
+kafka-python>=2.0.2
+confluent-kafka>=2.2.0
+
+# Utilities
+python-dotenv>=1.0.0
+click>=8.1.0
+tqdm>=4.65.0
+joblib>=1.3.0
+schedule>=1.2.0

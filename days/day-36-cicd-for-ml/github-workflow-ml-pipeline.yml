@@ -1,0 +1,118 @@
+# Day 36: CI/CD for ML - GitHub Actions Workflow
+# Save this as .github/workflows/ml_pipeline.yml in your repository
+
+name: ML Pipeline CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'src/**'
+      - 'data/**'
+      - 'models/**'
+      - 'requirements.txt'
+      - 'config/**'
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run daily at 2 AM UTC for data drift monitoring
+    - cron: '0 2 * * *'
+
+env:
+  PYTHON_VERSION: '3.9'
+  AWS_REGION: 'us-west-2'
+  MODEL_REGISTRY: 'ml-model-registry'
+
+jobs:
+  data-validation:
+    runs-on: ubuntu-latest
+    outputs:
+      data-changed: ${{ steps.check-data.outputs.changed }}
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 2
+        
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Check data changes
+      id: check-data
+      run: |
+        if git diff --name-only HEAD~1 | grep -q "data/"; then
+          echo "changed=true" >> $GITHUB_OUTPUT
+        else
+          echo "changed=false" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Validate data schema
+      run: |
+        python -c "
+        import pandas as pd
+        import sys
+        try:
+            data = pd.read_csv('data/fraud_detection_data.csv')
+            required_cols = ['amount', 'merchant_category_encoded', 'hour', 'user_age', 'account_balance', 'is_fraud']
+            missing = set(required_cols) - set(data.columns)
+            if missing:
+                print(f'Missing columns: {missing}')
+                sys.exit(1)
+            print('Data schema validation passed')
+        except Exception as e:
+            print(f'Data validation failed: {e}')
+            sys.exit(1)
+        "
+
+  model-training:
+    needs: data-validation
+    runs-on: ubuntu-latest
+    if: needs.data-validation.outputs.data-changed == 'true' || github.event_name == 'schedule'
+    
+    strategy:
+      matrix:
+        model-type: [random_forest, gradient_boosting]
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        
+    - name: Train model
+      env:
+        MODEL_TYPE: ${{ matrix.model-type }}
+      run: |
+        python solution.py
+
+  deploy-production:
+    needs: [model-training]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+    - name: Deploy to production
+      run: |
+        echo "Deploying to production with blue-green strategy"

@@ -1,0 +1,268 @@
+# Day 6: Advanced Kafka - Exercise Environment
+# Multi-broker Kafka cluster with monitoring
+
+version: '3.8'
+
+services:
+  # ZooKeeper ensemble for production-like setup
+  zookeeper-1:
+    image: confluentinc/cp-zookeeper:7.4.0
+    hostname: zookeeper-1
+    container_name: zookeeper-1
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_SERVER_ID: 1
+      ZOOKEEPER_SERVERS: zookeeper-1:2888:3888
+    volumes:
+      - zk1-data:/var/lib/zookeeper/data
+      - zk1-logs:/var/lib/zookeeper/log
+
+  # Kafka Broker 1
+  kafka-1:
+    image: confluentinc/cp-kafka:7.4.0
+    hostname: kafka-1
+    container_name: kafka-1
+    depends_on:
+      - zookeeper-1
+    ports:
+      - "9092:9092"
+      - "19092:19092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper-1:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-1:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: kafka-1:29092
+      KAFKA_CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 3
+      KAFKA_CONFLUENT_METRICS_ENABLE: 'true'
+      KAFKA_CONFLUENT_SUPPORT_CUSTOMER_ID: anonymous
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_UNCLEAN_LEADER_ELECTION_ENABLE: 'false'
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+      KAFKA_JMX_PORT: 19092
+      KAFKA_JMX_HOSTNAME: localhost
+    volumes:
+      - kafka1-data:/var/lib/kafka/data
+
+  # Kafka Broker 2
+  kafka-2:
+    image: confluentinc/cp-kafka:7.4.0
+    hostname: kafka-2
+    container_name: kafka-2
+    depends_on:
+      - zookeeper-1
+    ports:
+      - "9093:9093"
+      - "19093:19093"
+    environment:
+      KAFKA_BROKER_ID: 2
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper-1:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-2:29093,PLAINTEXT_HOST://localhost:9093
+      KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: kafka-2:29093
+      KAFKA_CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 3
+      KAFKA_CONFLUENT_METRICS_ENABLE: 'true'
+      KAFKA_CONFLUENT_SUPPORT_CUSTOMER_ID: anonymous
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_UNCLEAN_LEADER_ELECTION_ENABLE: 'false'
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+      KAFKA_JMX_PORT: 19093
+      KAFKA_JMX_HOSTNAME: localhost
+    volumes:
+      - kafka2-data:/var/lib/kafka/data
+
+  # Kafka Broker 3
+  kafka-3:
+    image: confluentinc/cp-kafka:7.4.0
+    hostname: kafka-3
+    container_name: kafka-3
+    depends_on:
+      - zookeeper-1
+    ports:
+      - "9094:9094"
+      - "19094:19094"
+    environment:
+      KAFKA_BROKER_ID: 3
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper-1:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-3:29094,PLAINTEXT_HOST://localhost:9094
+      KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: kafka-3:29094
+      KAFKA_CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 3
+      KAFKA_CONFLUENT_METRICS_ENABLE: 'true'
+      KAFKA_CONFLUENT_SUPPORT_CUSTOMER_ID: anonymous
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_UNCLEAN_LEADER_ELECTION_ENABLE: 'false'
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+      KAFKA_JMX_PORT: 19094
+      KAFKA_JMX_HOSTNAME: localhost
+    volumes:
+      - kafka3-data:/var/lib/kafka/data
+
+  # Schema Registry
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.4.0
+    hostname: schema-registry
+    container_name: schema-registry
+    depends_on:
+      - kafka-1
+      - kafka-2
+      - kafka-3
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'kafka-1:29092,kafka-2:29093,kafka-3:29094'
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+
+  # Kafka Connect
+  connect:
+    image: confluentinc/cp-kafka-connect:7.4.0
+    hostname: connect
+    container_name: connect
+    depends_on:
+      - kafka-1
+      - kafka-2
+      - kafka-3
+      - schema-registry
+    ports:
+      - "8083:8083"
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: 'kafka-1:29092,kafka-2:29093,kafka-3:29094'
+      CONNECT_REST_ADVERTISED_HOST_NAME: connect
+      CONNECT_GROUP_ID: compose-connect-group
+      CONNECT_CONFIG_STORAGE_TOPIC: docker-connect-configs
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 3
+      CONNECT_OFFSET_FLUSH_INTERVAL_MS: 10000
+      CONNECT_OFFSET_STORAGE_TOPIC: docker-connect-offsets
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 3
+      CONNECT_STATUS_STORAGE_TOPIC: docker-connect-status
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 3
+      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+      CONNECT_VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      CONNECT_PLUGIN_PATH: "/usr/share/java,/usr/share/confluent-hub-components"
+      CONNECT_LOG4J_LOGGERS: org.apache.zookeeper=ERROR,org.I0Itec.zkclient=ERROR,org.reflections=ERROR
+
+  # AKHQ for Kafka management
+  akhq:
+    image: tchiotludo/akhq:0.24.0
+    hostname: akhq
+    container_name: akhq
+    depends_on:
+      - kafka-1
+      - kafka-2
+      - kafka-3
+    ports:
+      - "8080:8080"
+    environment:
+      AKHQ_CONFIGURATION: |
+        akhq:
+          connections:
+            docker-kafka-server:
+              properties:
+                bootstrap.servers: "kafka-1:29092,kafka-2:29093,kafka-3:29094"
+              schema-registry:
+                url: "http://schema-registry:8081"
+              connect:
+                - name: "connect"
+                  url: "http://connect:8083"
+
+  # Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    hostname: prometheus
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+
+  # JMX Exporter for Kafka metrics
+  jmx-kafka-1:
+    image: sscaling/jmx-prometheus-exporter:0.17.2
+    hostname: jmx-kafka-1
+    container_name: jmx-kafka-1
+    depends_on:
+      - kafka-1
+    ports:
+      - "5556:5556"
+    environment:
+      CONFIG_YML: |
+        jmxUrl: service:jmx:rmi:///jndi/rmi://kafka-1:19092/jmxrmi
+        lowercaseOutputName: true
+        lowercaseOutputLabelNames: true
+        ssl: false
+        rules:
+        - pattern: kafka.server<type=(.+), name=(.+)><>Value
+          name: kafka_server_$1_$2
+        - pattern: kafka.server<type=(.+), name=(.+), clientId=(.+)><>Value
+          name: kafka_server_$1_$2
+          labels:
+            clientId: "$3"
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:10.0.0
+    hostname: grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: <admin_password>
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+
+  # Redis for caching and real-time analytics
+  redis:
+    image: redis:7-alpine
+    hostname: redis
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+volumes:
+  zk1-data:
+  zk1-logs:
+  kafka1-data:
+  kafka2-data:
+  kafka3-data:
+  prometheus-data:
+  grafana-data:
+  redis-data:
+
+networks:
+  default:
+    name: kafka-advanced-network

@@ -1,0 +1,13 @@
+dataflow_production:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: postgres
+      user: airflow
+      password: airflow
+      port: 5432
+      dbname: dataflow_warehouse
+      schema: public
+      threads: 4
+      keepalives_idle: 0

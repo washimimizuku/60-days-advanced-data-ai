@@ -1,0 +1,137 @@
+version: '3.8'
+
+services:
+  # PostgreSQL with Row-Level Security support
+  postgres:
+    image: postgres:15-alpine
+    container_name: access_control_postgres
+    environment:
+      POSTGRES_DB: access_control_db
+      POSTGRES_USER: access_user
+      POSTGRES_PASSWORD: access_pass
+      POSTGRES_INITDB_ARGS: "--auth-host=md5"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sample_data/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./sample_data/sample_policies.sql:/docker-entrypoint-initdb.d/02-policies.sql
+    networks:
+      - access_control_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U access_user -d access_control_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching and session management
+  redis:
+    image: redis:7-alpine
+    container_name: access_control_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./sample_data/redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    networks:
+      - access_control_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Optional: pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: access_control_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "8080:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - access_control_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - tools
+
+  # Optional: Redis Commander for Redis management
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: access_control_redis_commander
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    ports:
+      - "8081:8081"
+    networks:
+      - access_control_network
+    depends_on:
+      redis:
+        condition: service_healthy
+    profiles:
+      - tools
+
+  # Optional: Prometheus for monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: access_control_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - access_control_network
+    profiles:
+      - monitoring
+
+  # Optional: Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: access_control_grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - access_control_network
+    depends_on:
+      - prometheus
+    profiles:
+      - monitoring
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  access_control_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

@@ -1,0 +1,104 @@
+# Day 39: Complete MLOps Pipeline - Production Dependencies
+
+# Core ML Libraries
+scikit-learn==1.3.2
+xgboost==2.0.2
+lightgbm==4.1.0
+numpy==1.24.3
+pandas==2.1.4
+scipy==1.11.4
+
+# AutoML and Optimization
+optuna==3.4.0
+h2o==3.44.0.3
+hyperopt==0.2.7
+auto-sklearn==0.15.0
+
+# MLOps and Model Management
+mlflow==2.8.1
+dvc==3.30.3
+feast==0.35.0
+great-expectations==0.18.5
+evidently==0.4.11
+
+# Model Serving and APIs
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+python-multipart==0.0.6
+httpx==0.25.2
+
+# Monitoring and Observability
+prometheus-client==0.19.0
+grafana-api==1.0.3
+shap==0.43.0
+lime==0.2.0.1
+
+# Data Storage and Processing
+psycopg2-binary==2.9.9
+redis==5.0.1
+pymongo==4.6.0
+sqlalchemy==2.0.23
+alembic==1.13.1
+
+# Infrastructure and Deployment
+docker==6.1.3
+kubernetes==28.1.0
+boto3==1.34.0
+minio==7.2.0
+apache-airflow==2.7.3
+
+# Security and Authentication
+cryptography==41.0.8
+pyjwt==2.8.0
+passlib[bcrypt]==1.7.4
+python-jose[cryptography]==3.3.0
+
+# Utilities and Development
+pyyaml==6.0.1
+python-dotenv==1.0.0
+click==8.1.7
+tqdm==4.66.1
+joblib==1.3.2
+requests==2.31.0
+
+# Testing and Quality
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+black==23.11.0
+flake8==6.1.0
+mypy==1.7.1
+
+# Jupyter and Notebooks
+jupyter==1.0.0
+jupyterlab==4.0.9
+notebook==7.0.6
+ipywidgets==8.1.1
+
+# Visualization
+matplotlib==3.8.2
+seaborn==0.13.0
+plotly==5.17.0
+dash==2.14.2
+
+# Time Series and Advanced Analytics
+prophet==1.1.5
+statsmodels==0.14.0
+pmdarima==2.0.4
+sktime==0.25.0
+
+# Distributed Computing
+dask[complete]==2023.12.0
+ray[default]==2.8.1
+celery==5.3.4
+
+# Configuration Management
+hydra-core==1.3.2
+omegaconf==2.3.0
+configparser==6.0.0
+
+# Development Tools
+pre-commit==3.6.0
+bandit==1.7.5
+safety==2.3.5

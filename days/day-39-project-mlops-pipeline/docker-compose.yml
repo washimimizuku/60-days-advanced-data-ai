@@ -1,0 +1,254 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database for Feature Store and Metadata
+  postgres:
+    image: postgres:15-alpine
+    container_name: mlops_postgres
+    environment:
+      POSTGRES_DB: mlops_db
+      POSTGRES_USER: mlops_user
+      POSTGRES_PASSWORD: mlops_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mlops_user -d mlops_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mlops_network
+
+  # Redis for Feature Store Online Serving
+  redis:
+    image: redis:7-alpine
+    container_name: mlops_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mlops_network
+
+  # MinIO for Model Artifacts and Data Storage
+  minio:
+    image: minio/minio:latest
+    container_name: mlops_minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - mlops_network
+
+  # MLflow Tracking Server
+  mlflow:
+    image: python:3.9-slim
+    container_name: mlops_mlflow
+    ports:
+      - "5000:5000"
+    environment:
+      - MLFLOW_BACKEND_STORE_URI=postgresql://mlops_user:mlops_password@postgres:5432/mlops_db
+      - MLFLOW_DEFAULT_ARTIFACT_ROOT=s3://mlflow-artifacts/
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin123
+      - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+    volumes:
+      - ./scripts:/scripts
+    command: >
+      bash -c "
+        pip install mlflow psycopg2-binary boto3 &&
+        mlflow server 
+          --backend-store-uri postgresql://mlops_user:mlops_password@postgres:5432/mlops_db
+          --default-artifact-root s3://mlflow-artifacts/
+          --host 0.0.0.0
+          --port 5000
+      "
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - mlops_network
+
+  # Prometheus for Metrics Collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: mlops_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - mlops_network
+
+  # Grafana for Monitoring Dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: mlops_grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+    networks:
+      - mlops_network
+
+  # Feast Feature Store
+  feast:
+    build:
+      context: .
+      dockerfile: Dockerfile.feast
+    container_name: mlops_feast
+    ports:
+      - "6566:6566"
+    environment:
+      - FEAST_REDIS_HOST=redis
+      - FEAST_POSTGRES_HOST=postgres
+      - FEAST_POSTGRES_USER=mlops_user
+      - FEAST_POSTGRES_PASSWORD=mlops_password
+      - FEAST_POSTGRES_DB=mlops_db
+    volumes:
+      - ./feature_store:/feature_store
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - mlops_network
+
+  # Model Serving API
+  model_api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mlops_model_api
+    ports:
+      - "8000:8000"
+    environment:
+      - POSTGRES_HOST=postgres
+      - REDIS_HOST=redis
+      - MINIO_HOST=minio:9000
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - PROMETHEUS_MULTIPROC_DIR=/tmp
+    volumes:
+      - ./models:/app/models
+      - ./data:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - postgres
+      - redis
+      - minio
+      - mlflow
+      - feast
+    networks:
+      - mlops_network
+
+  # Jupyter Lab for Development
+  jupyter:
+    image: jupyter/datascience-notebook:latest
+    container_name: mlops_jupyter
+    ports:
+      - "8888:8888"
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+      - JUPYTER_TOKEN=mlops123
+    volumes:
+      - ./notebooks:/home/jovyan/work
+      - ./data:/home/jovyan/data
+      - ./models:/home/jovyan/models
+    networks:
+      - mlops_network
+
+  # Airflow for Orchestration
+  airflow-webserver:
+    image: apache/airflow:2.7.3
+    container_name: mlops_airflow_webserver
+    ports:
+      - "8080:8080"
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://mlops_user:mlops_password@postgres:5432/mlops_db
+      - AIRFLOW__CORE__FERNET_KEY=81HqDtbqAywKSOumSha3BhWNOdQ26slT6K0YaZeZyPs=
+      - AIRFLOW__WEBSERVER__SECRET_KEY=mlops_secret_key
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+      - ./data:/opt/airflow/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      bash -c "
+        airflow db init &&
+        airflow users create --username admin --password admin123 --firstname Admin --lastname User --role Admin --email admin@mlops.com &&
+        airflow webserver
+      "
+    networks:
+      - mlops_network
+
+  airflow-scheduler:
+    image: apache/airflow:2.7.3
+    container_name: mlops_airflow_scheduler
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://mlops_user:mlops_password@postgres:5432/mlops_db
+      - AIRFLOW__CORE__FERNET_KEY=81HqDtbqAywKSOumSha3BhWNOdQ26slT6K0YaZeZyPs=
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+      - ./data:/opt/airflow/data
+    depends_on:
+      - airflow-webserver
+    command: airflow scheduler
+    networks:
+      - mlops_network
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  mlops_network:
+    driver: bridge

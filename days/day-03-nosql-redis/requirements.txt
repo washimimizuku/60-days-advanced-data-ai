@@ -1,0 +1,11 @@
+# Day 3: NoSQL Databases - Redis for Caching
+# Python dependencies
+
+# Redis client for Python
+redis>=4.5.0
+
+# Optional: For better JSON handling (already in Python standard library)
+# json - built-in module
+
+# Optional: For UUID generation (already in Python standard library)  
+# uuid - built-in module

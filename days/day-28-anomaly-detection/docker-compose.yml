@@ -1,0 +1,238 @@
+version: '3.8'
+
+services:
+  # PostgreSQL for metadata and model storage
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: anomaly_db
+      POSTGRES_USER: anomaly_user
+      POSTGRES_PASSWORD: anomaly_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U anomaly_user -d anomaly_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching and real-time data
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # InfluxDB for time series storage
+  influxdb:
+    image: influxdb:2.7
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: anomaly123
+      DOCKER_INFLUXDB_INIT_ORG: anomaly-org
+      DOCKER_INFLUXDB_INIT_BUCKET: anomalies
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: anomaly-token-12345
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Kafka for streaming data
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # MLflow for experiment tracking
+  mlflow:
+    image: python:3.11-slim
+    command: >
+      bash -c "
+        pip install mlflow psycopg2-binary &&
+        mlflow server 
+          --backend-store-uri postgresql://anomaly_user:anomaly_pass@postgres:5432/anomaly_db
+          --default-artifact-root ./mlruns
+          --host 0.0.0.0
+          --port 5000
+      "
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - mlflow_data:/mlflow/mlruns
+
+  # Anomaly Detection API
+  anomaly-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "8000:8000"
+    environment:
+      - POSTGRES_HOST=postgres
+      - REDIS_HOST=redis
+      - INFLUXDB_HOST=influxdb
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./:/app
+    command: uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+
+  # Data Generator with Anomaly Injection
+  data-generator:
+    build:
+      context: .
+      dockerfile: Dockerfile.generator
+    environment:
+      - POSTGRES_HOST=postgres
+      - REDIS_HOST=redis
+      - INFLUXDB_HOST=influxdb
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./:/app
+    command: python data_generator.py
+
+  # Streaming Anomaly Detector
+  stream-detector:
+    build:
+      context: .
+      dockerfile: Dockerfile.stream
+    environment:
+      - POSTGRES_HOST=postgres
+      - REDIS_HOST=redis
+      - INFLUXDB_HOST=influxdb
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./:/app
+    command: python stream_detector.py
+
+  # Jupyter for interactive analysis
+  jupyter:
+    image: jupyter/scipy-notebook:latest
+    ports:
+      - "8888:8888"
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+      - JUPYTER_TOKEN=anomaly123
+    volumes:
+      - ./:/home/jovyan/work
+      - jupyter_data:/home/jovyan
+    command: start-notebook.sh --NotebookApp.token='anomaly123'
+
+  # Prometheus for monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+
+  # Alertmanager for anomaly alerts
+  alertmanager:
+    image: prom/alertmanager:latest
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=anomaly123
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+      - influxdb
+
+volumes:
+  postgres_data:
+  redis_data:
+  influxdb_data:
+  kafka_data:
+  zookeeper_data:
+  mlflow_data:
+  jupyter_data:
+  prometheus_data:
+  alertmanager_data:
+  grafana_data:

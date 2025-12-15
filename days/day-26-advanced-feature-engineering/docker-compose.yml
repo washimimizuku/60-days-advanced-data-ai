@@ -1,0 +1,160 @@
+version: '3.8'
+
+services:
+  # PostgreSQL for feature storage and analysis
+  postgres:
+    image: postgres:15-alpine
+    container_name: fintech-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-fintech_features}
+      POSTGRES_USER: ${POSTGRES_USER:-feature_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-feature_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./data/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-feature_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fintech-network
+
+  # Redis for caching and fast feature access
+  redis:
+    image: redis:7-alpine
+    container_name: fintech-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 1gb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fintech-network
+
+  # Feature Engineering API
+  feature-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: fintech-feature-api
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-fintech_features}
+      POSTGRES_USER: ${POSTGRES_USER:-feature_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-feature_password}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - fintech-network
+
+  # Jupyter Lab for interactive development
+  jupyter:
+    build:
+      context: .
+      dockerfile: Dockerfile.jupyter
+    container_name: fintech-jupyter
+    environment:
+      JUPYTER_ENABLE_LAB: "yes"
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./notebooks:/home/jovyan/work
+      - ./data:/home/jovyan/data
+      - ./models:/home/jovyan/models
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - fintech-network
+
+  # Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: fintech-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - fintech-network
+
+  # Grafana for monitoring dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: fintech-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin123}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+    networks:
+      - fintech-network
+
+  # Data generator for sample FinTech data
+  data-generator:
+    build:
+      context: .
+      dockerfile: Dockerfile.datagen
+    container_name: fintech-data-generator
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-fintech_features}
+      POSTGRES_USER: ${POSTGRES_USER:-feature_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-feature_password}
+      REDIS_HOST: redis
+      SAMPLE_CUSTOMERS: ${SAMPLE_CUSTOMERS:-10000}
+      SAMPLE_TRANSACTIONS: ${SAMPLE_TRANSACTIONS:-100000}
+      DAYS_OF_DATA: ${DAYS_OF_DATA:-90}
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - fintech-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  fintech-network:
+    driver: bridge

@@ -1,0 +1,390 @@
+version: '3.8'
+
+# Production Airflow at Scale - Docker Compose Configuration
+# Supports distributed execution, HA, monitoring, and auto-scaling
+
+x-airflow-common: &airflow-common
+  image: apache/airflow:2.7.0
+  environment: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:${POSTGRES_PASSWORD:-airflow}@postgres-primary/airflow
+    AIRFLOW__CELERY__BROKER_URL: redis://redis-master:6379/0
+    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:${POSTGRES_PASSWORD:-airflow}@postgres-primary/airflow
+    AIRFLOW__CORE__PARALLELISM: 256
+    AIRFLOW__CORE__MAX_ACTIVE_RUNS_PER_DAG: 16
+    AIRFLOW__CORE__MAX_ACTIVE_TASKS_PER_DAG: 32
+    AIRFLOW__CELERY__WORKER_CONCURRENCY: 16
+    AIRFLOW__CELERY__WORKER_PREFETCH_MULTIPLIER: 1
+    AIRFLOW__CELERY__TASK_ACKS_LATE: 'True'
+    AIRFLOW__CELERY__WORKER_MAX_TASKS_PER_CHILD: 1000
+    AIRFLOW__METRICS__STATSD_ON: 'True'
+    AIRFLOW__METRICS__STATSD_HOST: prometheus-statsd-exporter
+    AIRFLOW__METRICS__STATSD_PORT: 9125
+    AIRFLOW__METRICS__STATSD_PREFIX: scalecorp_airflow
+    AIRFLOW__SCHEDULER__STANDALONE_DAG_PROCESSOR: 'True'
+    AIRFLOW__SCHEDULER__MAX_DAGRUNS_PER_LOOP_TO_SCHEDULE: 20
+    AIRFLOW__SCHEDULER__MAX_DAGRUNS_TO_CREATE_PER_LOOP: 10
+    AIRFLOW__WEBSERVER__WORKERS: 4
+    AIRFLOW__WEBSERVER__WORKER_TIMEOUT: 120
+    AIRFLOW__WEBSERVER__WEB_SERVER_WORKER_TIMEOUT: 120
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'False'
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'True'
+    AIRFLOW__LOGGING__LOGGING_LEVEL: INFO
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'False'
+    AIRFLOW__WEBSERVER__AUTHENTICATE: 'True'
+    AIRFLOW__WEBSERVER__AUTH_BACKEND: airflow.auth.backends.password_auth
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./logs:/opt/airflow/logs
+    - ./plugins:/opt/airflow/plugins
+    - ./config:/opt/airflow/config
+  user: "${AIRFLOW_UID:-50000}:0"
+  depends_on:
+    redis-master:
+      condition: service_healthy
+    postgres-primary:
+      condition: service_healthy
+
+services:
+  # Redis Cluster for High Availability Message Broker
+  redis-master:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: |
+      redis-server 
+      --appendonly yes 
+      --replica-read-only no 
+      --maxmemory 2gb 
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+    volumes:
+      - redis_master_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - airflow_network
+
+  redis-replica:
+    image: redis:7-alpine
+    command: |
+      redis-server 
+      --replicaof redis-master 6379 
+      --appendonly yes
+      --replica-read-only yes
+    volumes:
+      - redis_replica_data:/data
+    depends_on:
+      - redis-master
+    restart: unless-stopped
+    networks:
+      - airflow_network
+
+  # PostgreSQL High Availability Database
+  postgres-primary:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: airflow
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-airflow}
+      POSTGRES_REPLICATION_MODE: master
+      POSTGRES_REPLICATION_USER: replicator
+      POSTGRES_REPLICATION_PASSWORD: ${POSTGRES_REPLICATION_PASSWORD:-replicator_password}
+      POSTGRES_INITDB_ARGS: "--auth-host=md5"
+    volumes:
+      - postgres_primary_data:/var/lib/postgresql/data
+      - ./config/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./config/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - airflow_network
+
+  postgres-replica:
+    image: postgres:13
+    environment:
+      POSTGRES_REPLICATION_MODE: slave
+      POSTGRES_REPLICATION_USER: replicator
+      POSTGRES_REPLICATION_PASSWORD: ${POSTGRES_REPLICATION_PASSWORD:-replicator_password}
+      POSTGRES_MASTER_SERVICE: postgres-primary
+    volumes:
+      - postgres_replica_data:/var/lib/postgresql/data
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - airflow_network
+
+  # Airflow Schedulers (High Availability)
+  airflow-scheduler-1:
+    <<: *airflow-common
+    command: scheduler
+    environment:
+      <<: *airflow-common-env
+      AIRFLOW__SCHEDULER__SCHEDULER_HEARTBEAT_SEC: 5
+      AIRFLOW__SCHEDULER__SCHEDULE_AFTER_TASK_EXECUTION: 'True'
+      AIRFLOW__SCHEDULER__PARSING_PROCESSES: 2
+      AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: 300
+    healthcheck:
+      test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname \"$${HOSTNAME}\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - airflow_network
+
+  airflow-scheduler-2:
+    <<: *airflow-common
+    command: scheduler
+    environment:
+      <<: *airflow-common-env
+      AIRFLOW__SCHEDULER__SCHEDULER_HEARTBEAT_SEC: 5
+      AIRFLOW__SCHEDULER__SCHEDULE_AFTER_TASK_EXECUTION: 'True'
+      AIRFLOW__SCHEDULER__PARSING_PROCESSES: 2
+      AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: 300
+    healthcheck:
+      test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname \"$${HOSTNAME}\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - airflow_network
+
+  # Airflow Web Servers (Load Balanced)
+  airflow-webserver-1:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - airflow_network
+
+  airflow-webserver-2:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8081:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - airflow_network
+
+  # Airflow Workers (Scalable)
+  airflow-worker:
+    <<: *airflow-common
+    command: celery worker
+    environment:
+      <<: *airflow-common-env
+      AIRFLOW__CELERY__WORKER_CONCURRENCY: 16
+      AIRFLOW__CELERY__WORKER_LOG_SERVER_PORT: 8793
+    healthcheck:
+      test: ["CMD-SHELL", "celery --app airflow.executors.celery_executor.app inspect ping -d celery@$${HOSTNAME}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      replicas: 3
+    networks:
+      - airflow_network
+
+  # Flower for Celery Monitoring
+  airflow-flower:
+    <<: *airflow-common
+    command: celery flower
+    ports:
+      - "5555:5555"
+    environment:
+      <<: *airflow-common-env
+      FLOWER_PORT: 5555
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:5555/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - airflow_network
+
+  # Monitoring Stack
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    networks:
+      - airflow_network
+
+  prometheus-statsd-exporter:
+    image: prom/statsd-exporter:latest
+    ports:
+      - "9125:9125/udp"
+      - "9102:9102"
+    volumes:
+      - ./monitoring/statsd_mapping.yml:/tmp/statsd_mapping.yml:ro
+    command:
+      - '--statsd.mapping-config=/tmp/statsd_mapping.yml'
+    restart: unless-stopped
+    networks:
+      - airflow_network
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_INSTALL_PLUGINS: grafana-piechart-panel
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    restart: unless-stopped
+    networks:
+      - airflow_network
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    restart: unless-stopped
+    networks:
+      - airflow_network
+
+  # Load Balancer for Web Servers
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./config/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - airflow-webserver-1
+      - airflow-webserver-2
+    restart: unless-stopped
+    networks:
+      - airflow_network
+
+  # Database initialization
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        function ver() {
+          printf "%04d%04d%04d%04d" $${1//./ }
+        }
+        airflow_version=$$(AIRFLOW__LOGGING__LOGGING_LEVEL=INFO && airflow version)
+        airflow_version_comparable=$$(ver $${airflow_version})
+        min_airflow_version=2.2.0
+        min_airflow_version_comparable=$$(ver $${min_airflow_version})
+        if (( airflow_version_comparable < min_airflow_version_comparable )); then
+          echo -e "\033[1;31mERROR!!!: Too old Airflow version $${airflow_version}!\e[0m"
+          echo "The minimum Airflow version supported: $${min_airflow_version}. Only use this or higher!"
+          exit 1
+        fi
+        if [[ -z "$${AIRFLOW_UID}" ]]; then
+          echo -e "\033[1;33mWARNING!!!: AIRFLOW_UID not set!\e[0m"
+          echo "If you are on Linux, you SHOULD follow the instructions below to set "
+          echo "AIRFLOW_UID environment variable, otherwise files will be owned by root."
+          echo "For other operating systems you can get rid of the warning with manually created .env file:"
+          echo "    See: https://airflow.apache.org/docs/apache-airflow/stable/howto/docker-compose/index.html#setting-the-right-airflow-user"
+        fi
+        one_meg=1048576
+        mem_available=$$(($$(getconf _PHYS_PAGES) * $$(getconf PAGE_SIZE) / one_meg))
+        cpus_available=$$(grep -cE 'cpu[0-9]+' /proc/stat)
+        disk_available=$$(df / | tail -1 | awk '{print $$4}')
+        warning_resources="false"
+        if (( mem_available < 4000 )) ; then
+          echo -e "\033[1;33mWARNING!!!: Not enough memory available for Docker.\e[0m"
+          echo "At least 4GB of memory required. You have $$(numfmt --to iec $$((mem_available * one_meg)))"
+          warning_resources="true"
+        fi
+        if (( cpus_available < 2 )); then
+          echo -e "\033[1;33mWARNING!!!: Not enough CPUS available for Docker.\e[0m"
+          echo "At least 2 CPUs recommended. You have $${cpus_available}"
+          warning_resources="true"
+        fi
+        if (( disk_available < one_meg * 10 )); then
+          echo -e "\033[1;33mWARNING!!!: Not enough Disk space available for Docker.\e[0m"
+          echo "At least 10 GBs recommended. You have $$(numfmt --to iec $$((disk_available * 1024 )))"
+          warning_resources="true"
+        fi
+        if [[ $${warning_resources} == "true" ]]; then
+          echo
+          echo -e "\033[1;33mWARNING!!!: You have not enough resources to run Airflow (see above)!\e[0m"
+          echo "Please follow the instructions to increase amount of resources available:"
+          echo "   https://airflow.apache.org/docs/apache-airflow/stable/howto/docker-compose/index.html#before-you-begin"
+        fi
+        mkdir -p /sources/logs /sources/dags /sources/plugins
+        chown -R "$${AIRFLOW_UID}:0" /sources/{logs,dags,plugins}
+        exec /entrypoint airflow version
+    environment:
+      <<: *airflow-common-env
+      _AIRFLOW_DB_UPGRADE: 'true'
+      _AIRFLOW_WWW_USER_CREATE: 'true'
+      _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-airflow}
+      _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
+      _PIP_ADDITIONAL_REQUIREMENTS: ''
+    user: "0:0"
+    volumes:
+      - .:/sources
+    networks:
+      - airflow_network
+
+volumes:
+  redis_master_data:
+  redis_replica_data:
+  postgres_primary_data:
+  postgres_replica_data:
+  prometheus_data:
+  grafana_data:
+  alertmanager_data:
+
+networks:
+  airflow_network:
+    driver: bridge

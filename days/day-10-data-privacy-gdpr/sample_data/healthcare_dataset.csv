@@ -1,0 +1,9 @@
+patient_id,email,phone,date_of_birth,gender,race,religion,diagnosis,treatment,insurance_id,doctor_name,hospital,visit_date,prescription
+P001,patient1@email.com,555-111-2222,1985-03-15,Female,Caucasian,Christian,Type 2 Diabetes,Metformin,INS123456,Dr. Smith,General Hospital,2024-01-15,Metformin 500mg
+P002,patient2@email.com,555-222-3333,1978-07-22,Male,African American,Baptist,Hypertension,Lisinopril,INS234567,Dr. Johnson,City Medical,2024-01-16,Lisinopril 10mg
+P003,patient3@email.com,555-333-4444,1992-11-08,Female,Hispanic,Catholic,Asthma,Albuterol,INS345678,Dr. Williams,Regional Health,2024-01-17,Albuterol inhaler
+P004,patient4@email.com,555-444-5555,1965-05-30,Male,Asian,Buddhist,Heart Disease,Atorvastatin,INS456789,Dr. Brown,Metro Hospital,2024-01-18,Atorvastatin 20mg
+P005,patient5@email.com,555-555-6666,1990-09-12,Non-binary,Native American,None,Depression,Sertraline,INS567890,Dr. Davis,Community Clinic,2024-01-19,Sertraline 50mg
+P006,patient6@email.com,555-666-7777,1982-12-03,Female,Caucasian,Jewish,Anxiety,Lorazepam,INS678901,Dr. Miller,University Medical,2024-01-20,Lorazepam 1mg
+P007,patient7@email.com,555-777-8888,1975-04-18,Male,Mixed Race,Muslim,Chronic Pain,Oxycodone,INS789012,Dr. Wilson,Pain Management Center,2024-01-21,Oxycodone 5mg
+P008,patient8@email.com,555-888-9999,1988-08-25,Female,Pacific Islander,Hindu,Migraine,Sumatriptan,INS890123,Dr. Garcia,Neurology Associates,2024-01-22,Sumatriptan 50mg

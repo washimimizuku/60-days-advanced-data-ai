@@ -1,0 +1,69 @@
+# Day 6: Advanced Kafka - Python Dependencies
+
+# Kafka client
+kafka-python==2.0.2
+
+# Alternative high-performance Kafka client
+confluent-kafka==2.3.0
+
+# Data processing
+pandas==2.1.4
+numpy==1.24.4
+
+# Async support
+asyncio==3.4.3
+aiofiles==23.2.1
+
+# Monitoring and metrics
+prometheus-client==0.19.0
+psutil==5.9.6
+
+# JSON schema validation
+jsonschema==4.20.0
+
+# Configuration management
+python-dotenv==1.0.0
+pyyaml==6.0.1
+
+# Logging
+structlog==23.2.0
+colorlog==6.8.0
+
+# HTTP requests for REST APIs
+requests==2.31.0
+
+# Date/time handling
+python-dateutil==2.8.2
+
+# Avro serialization (for Schema Registry)
+avro-python3==1.11.3
+confluent-kafka[avro]==2.3.0
+
+# Protobuf support
+protobuf==4.25.1
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-mock==3.12.0
+
+# Performance testing
+locust==2.17.0
+
+# Development tools
+black==23.12.0
+flake8==6.1.0
+mypy==1.8.0
+isort==5.13.2
+
+# Jupyter for analysis
+jupyter==1.0.0
+matplotlib==3.8.2
+seaborn==0.13.0
+
+# Redis for caching examples
+redis==5.0.1
+
+# Database connectivity
+psycopg2-binary==2.9.9
+sqlalchemy==2.0.23

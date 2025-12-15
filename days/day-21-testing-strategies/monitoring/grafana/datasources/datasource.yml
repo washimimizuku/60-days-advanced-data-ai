@@ -1,0 +1,22 @@
+# Day 21: Testing Strategies - Grafana Datasources
+apiVersion: 1
+
+datasources:
+  - name: PostgreSQL
+    type: postgres
+    access: proxy
+    url: postgres:5432
+    database: testing_db
+    user: testuser
+    secureJsonData:
+      password: testpass123
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1500
+      timescaledb: false
+
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true

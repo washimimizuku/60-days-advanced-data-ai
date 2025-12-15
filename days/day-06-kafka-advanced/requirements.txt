@@ -1,0 +1,28 @@
+# Day 6: Advanced Kafka - Python Dependencies
+
+# Kafka client
+kafka-python==2.0.2
+
+# Alternative high-performance Kafka client
+confluent-kafka==2.3.0
+
+# Data processing
+pandas==2.1.4
+
+# Monitoring and metrics
+prometheus-client==0.19.0
+
+# Configuration management
+python-dotenv==1.0.0
+
+# HTTP requests for REST APIs
+requests==2.31.0
+
+# Date/time handling
+python-dateutil==2.8.2
+
+# Testing
+pytest==7.4.3
+
+# Development tools
+black==23.12.0

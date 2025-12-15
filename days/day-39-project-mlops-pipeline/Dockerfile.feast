@@ -1,0 +1,30 @@
+FROM python:3.9-slim
+
+# Set working directory
+WORKDIR /feature_store
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Feast and dependencies
+RUN pip install --no-cache-dir \
+    feast[redis,postgres]==0.35.0 \
+    psycopg2-binary==2.9.9 \
+    redis==5.0.1
+
+# Copy feature store configuration
+COPY feature_store/ .
+
+# Expose Feast serving port
+EXPOSE 6566
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD feast --help || exit 1
+
+# Initialize and serve features
+CMD ["bash", "-c", "feast apply && feast serve --host 0.0.0.0 --port 6566"]

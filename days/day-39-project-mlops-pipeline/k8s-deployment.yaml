@@ -1,0 +1,277 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mlops-pipeline
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mlops-config
+  namespace: mlops-pipeline
+data:
+  POSTGRES_HOST: "postgres-service"
+  REDIS_HOST: "redis-service"
+  MINIO_HOST: "minio-service:9000"
+  MLFLOW_TRACKING_URI: "http://mlflow-service:5000"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mlops-secrets
+  namespace: mlops-pipeline
+type: Opaque
+data:
+  POSTGRES_PASSWORD: bWxvcHNfcGFzc3dvcmQ=  # mlops_password
+  MINIO_ACCESS_KEY: bWluaW9hZG1pbg==        # minioadmin
+  MINIO_SECRET_KEY: bWluaW9hZG1pbjEyMw==    # minioadmin123
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: mlops-pipeline
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          value: "mlops_db"
+        - name: POSTGRES_USER
+          value: "mlops_user"
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mlops-secrets
+              key: POSTGRES_PASSWORD
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: postgres-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service
+  namespace: mlops-pipeline
+spec:
+  selector:
+    app: postgres
+  ports:
+  - port: 5432
+    targetPort: 5432
+  type: ClusterIP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: mlops-pipeline
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: mlops-pipeline
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+        command: ["redis-server", "--appendonly", "yes"]
+        volumeMounts:
+        - name: redis-storage
+          mountPath: /data
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      volumes:
+      - name: redis-storage
+        persistentVolumeClaim:
+          claimName: redis-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: mlops-pipeline
+spec:
+  selector:
+    app: redis
+  ports:
+  - port: 6379
+    targetPort: 6379
+  type: ClusterIP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-pvc
+  namespace: mlops-pipeline
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: model-api
+  namespace: mlops-pipeline
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: model-api
+  template:
+    metadata:
+      labels:
+        app: model-api
+    spec:
+      containers:
+      - name: model-api
+        image: mlops-model-api:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: POSTGRES_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: mlops-config
+              key: POSTGRES_HOST
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: mlops-config
+              key: REDIS_HOST
+        - name: MLFLOW_TRACKING_URI
+          valueFrom:
+            configMapKeyRef:
+              name: mlops-config
+              key: MLFLOW_TRACKING_URI
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: model-api-service
+  namespace: mlops-pipeline
+spec:
+  selector:
+    app: model-api
+  ports:
+  - port: 8000
+    targetPort: 8000
+  type: LoadBalancer
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: model-api-hpa
+  namespace: mlops-pipeline
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: model-api
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mlops-ingress
+  namespace: mlops-pipeline
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+  - hosts:
+    - api.mlops.company.com
+    secretName: mlops-tls
+  rules:
+  - host: api.mlops.company.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: model-api-service
+            port:
+              number: 8000

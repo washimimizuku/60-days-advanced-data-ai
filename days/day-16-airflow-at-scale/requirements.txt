@@ -1,0 +1,37 @@
+# Day 16: Airflow at Scale - Production Dependencies
+
+# Core Airflow with enterprise features
+apache-airflow==2.7.0
+apache-airflow[celery,redis,postgres,kubernetes,prometheus]==2.7.0
+
+# Database drivers
+psycopg2-binary==2.9.7
+redis==4.6.0
+
+# Monitoring and metrics
+prometheus-client==0.17.1
+statsd==4.0.1
+
+# Kubernetes integration
+kubernetes==27.2.0
+
+# Auto-scaling and cloud
+boto3==1.28.57
+google-cloud-container==2.21.0
+
+# Alerting integrations
+requests==2.31.0
+slack-sdk==3.21.3
+
+# Performance monitoring
+psutil==5.9.5
+
+# Configuration management
+pyyaml==6.0.1
+
+# Security
+cryptography==41.0.4
+
+# Development and testing
+pytest==7.4.0
+pytest-airflow==0.0.8

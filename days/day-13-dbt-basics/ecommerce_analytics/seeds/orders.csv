@@ -1,0 +1,6 @@
+id,customer_id,order_date,status,total_amount
+1,1,2024-01-20,completed,15000
+2,2,2024-01-21,shipped,7550
+3,1,2024-01-22,pending,20000
+4,3,2024-01-23,delivered,12500
+5,4,2024-01-24,completed,8750

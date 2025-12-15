@@ -1,0 +1,66 @@
+# Day 22: AWS Glue & Data Catalog - Docker Environment
+version: '3.8'
+
+services:
+  # LocalStack for AWS services simulation
+  localstack:
+    image: localstack/localstack:3.0
+    container_name: day22_localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3,glue,athena,iam,sts
+      - DEBUG=1
+      - DATA_DIR=/tmp/localstack/data
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - "./data:/tmp/localstack/data"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Development environment
+  glue-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: day22_glue_dev
+    depends_on:
+      localstack:
+        condition: service_healthy
+    environment:
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - PYTHONPATH=/app
+    volumes:
+      - .:/app
+      - ./data:/app/data
+      - ./scripts:/app/scripts
+    working_dir: /app
+    command: tail -f /dev/null
+
+  # Jupyter notebook for interactive development
+  jupyter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: day22_jupyter
+    depends_on:
+      - localstack
+    ports:
+      - "8888:8888"
+    environment:
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+    volumes:
+      - .:/app
+      - ./notebooks:/app/notebooks
+    working_dir: /app
+    command: jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token=''

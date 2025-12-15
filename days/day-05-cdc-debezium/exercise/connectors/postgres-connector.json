@@ -1,0 +1,33 @@
+{
+  "name": "postgres-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "database.hostname": "postgres",
+    "database.port": "5432",
+    "database.user": "<debezium_user>",
+    "database.password": "<debezium_password>",
+    "database.dbname": "ecommerce",
+    "database.server.name": "ecommerce-db",
+    "table.include.list": "public.customers,public.products,public.orders,public.order_items,public.inventory_movements,public.user_events",
+    "plugin.name": "pgoutput",
+    "publication.name": "dbz_publication",
+    "slot.name": "debezium_slot",
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": false,
+    "value.converter.schemas.enable": false,
+    "transforms": "unwrap",
+    "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+    "transforms.unwrap.drop.tombstones": false,
+    "transforms.unwrap.delete.handling.mode": "rewrite",
+    "transforms.unwrap.add.fields": "op,source.ts_ms,source.db,source.table",
+    "snapshot.mode": "initial",
+    "publication.autocreate.mode": "filtered",
+    "schema.evolution": "true",
+    "include.schema.changes": "true",
+    "provide.transaction.metadata": "false",
+    "max.batch.size": "2048",
+    "max.queue.size": "8192",
+    "poll.interval.ms": "1000"
+  }
+}

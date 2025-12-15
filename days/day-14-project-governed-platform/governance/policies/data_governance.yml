@@ -1,0 +1,151 @@
+# DataCorp Data Governance Policies
+# Policy-as-Code implementation for automated governance
+
+data_governance:
+  # Data Classification Rules
+  classification_rules:
+    - pattern: ".*email.*"
+      classification: "PII"
+      retention: "7_years"
+      access_level: "restricted"
+      protection_method: "hash"
+      
+    - pattern: ".*phone.*|.*mobile.*"
+      classification: "PII"
+      retention: "7_years"
+      access_level: "restricted"
+      protection_method: "mask"
+      
+    - pattern: ".*ssn.*|.*social_security.*"
+      classification: "SENSITIVE_PII"
+      retention: "permanent"
+      access_level: "highly_restricted"
+      protection_method: "encrypt"
+      
+    - pattern: ".*address.*|.*street.*|.*zip.*"
+      classification: "PII"
+      retention: "7_years"
+      access_level: "restricted"
+      protection_method: "mask"
+      
+    - pattern: ".*transaction.*|.*payment.*"
+      classification: "FINANCIAL"
+      retention: "10_years"
+      access_level: "restricted"
+      protection_method: "encrypt"
+
+  # Access Control Policies
+  access_policies:
+    - role: "data_analyst"
+      allowed_classifications: ["public", "internal"]
+      row_level_filters:
+        - "region = user_region"
+      column_restrictions:
+        - "exclude_pii_columns"
+      
+    - role: "data_scientist"
+      allowed_classifications: ["public", "internal", "confidential"]
+      row_level_filters:
+        - "department = user_department"
+      column_restrictions:
+        - "hash_pii_columns"
+        
+    - role: "compliance_officer"
+      allowed_classifications: ["public", "internal", "confidential", "restricted"]
+      row_level_filters: []
+      column_restrictions: []
+      
+    - role: "admin"
+      allowed_classifications: ["all"]
+      row_level_filters: []
+      column_restrictions: []
+
+  # Data Quality Rules
+  quality_rules:
+    - table: "customers"
+      rules:
+        - column: "customer_id"
+          type: "not_null"
+          severity: "critical"
+        - column: "email"
+          type: "format"
+          pattern: "^[\\w\\.-]+@[\\w\\.-]+\\.[a-zA-Z]{2,}$"
+          severity: "high"
+        - column: "created_at"
+          type: "not_null"
+          severity: "critical"
+          
+    - table: "transactions"
+      rules:
+        - column: "amount"
+          type: "range"
+          min_value: 0
+          max_value: 1000000
+          severity: "high"
+        - column: "transaction_date"
+          type: "freshness"
+          max_age_hours: 24
+          severity: "medium"
+
+  # Retention Policies
+  retention_policies:
+    - data_type: "customer_data"
+      retention_period: "7_years"
+      deletion_method: "secure_delete"
+      archive_before_deletion: true
+      
+    - data_type: "transaction_data"
+      retention_period: "10_years"
+      deletion_method: "secure_delete"
+      archive_before_deletion: true
+      
+    - data_type: "audit_logs"
+      retention_period: "7_years"
+      deletion_method: "secure_delete"
+      archive_before_deletion: false
+
+  # GDPR Compliance Settings
+  gdpr_compliance:
+    enabled: true
+    data_controller: "DataCorp Financial Services"
+    dpo_contact: "privacy@datacorp.com"
+    
+    # Right to be forgotten
+    erasure_enabled: true
+    erasure_verification: true
+    
+    # Data portability
+    export_enabled: true
+    export_formats: ["json", "csv", "xml"]
+    
+    # Consent management
+    consent_required: true
+    consent_granular: true
+    consent_withdrawal: true
+    
+    # Breach notification
+    breach_detection: true
+    notification_timeline_hours: 72
+    authority_contact: "regulatory@datacorp.com"
+
+  # Monitoring and Alerting
+  monitoring:
+    compliance_threshold: 95
+    quality_threshold: 90
+    
+    alerts:
+      - type: "compliance_violation"
+        severity: "critical"
+        channels: ["email", "slack", "pagerduty"]
+        
+      - type: "data_quality_degradation"
+        severity: "high"
+        channels: ["email", "slack"]
+        
+      - type: "pii_exposure"
+        severity: "critical"
+        channels: ["email", "slack", "pagerduty"]
+        
+      - type: "retention_violation"
+        severity: "medium"
+        channels: ["email"]

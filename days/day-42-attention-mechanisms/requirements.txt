@@ -1,0 +1,30 @@
+# Day 42: Attention Mechanisms Deep Dive - Requirements
+
+# Core ML and Deep Learning
+torch>=2.0.0
+torchvision>=0.15.0
+numpy>=1.21.0
+
+# Visualization and Analysis
+matplotlib>=3.5.0
+seaborn>=0.11.0
+plotly>=5.0.0
+
+# Data Processing
+pandas>=1.3.0
+
+# Testing and Development
+pytest>=7.0.0
+pytest-cov>=4.0.0
+
+# Performance Monitoring
+psutil>=5.8.0
+memory-profiler>=0.60.0
+
+# Optional: Advanced Attention Implementations
+# flash-attn>=2.0.0  # Uncomment if you have compatible GPU
+# xformers>=0.0.20   # Uncomment for memory-efficient attention
+
+# Jupyter (for interactive development)
+jupyter>=1.0.0
+ipykernel>=6.0.0

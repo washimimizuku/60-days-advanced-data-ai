@@ -1,0 +1,8 @@
+great-expectations==0.18.8
+pandas==2.1.4
+psycopg2-binary==2.9.9
+sqlalchemy==1.4.48
+pyyaml==6.0.1
+requests==2.31.0
+apache-airflow==2.8.1
+apache-airflow-providers-great-expectations==0.2.8

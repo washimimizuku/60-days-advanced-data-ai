@@ -1,0 +1,19 @@
+# Day 4: Snowflake Data Warehouse - Python Dependencies
+
+# Snowflake Python connector for programmatic access (updated for security)
+snowflake-connector-python>=3.12.3
+
+# SQLAlchemy dialect for Snowflake (if using ORM)
+snowflake-sqlalchemy==1.5.1
+
+# Pandas for data manipulation (commonly used with Snowflake)
+pandas>=1.5.0
+
+# Optional: For advanced data processing
+numpy>=1.21.0
+
+# Optional: For connecting via SQLAlchemy
+sqlalchemy>=1.4.0
+
+# Note: This lesson primarily uses Snowflake's web interface and SQL
+# Python packages are optional for advanced integrations

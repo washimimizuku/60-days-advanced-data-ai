@@ -1,0 +1,41 @@
+# Day 32: Feast Feature Store Dockerfile
+
+FROM python:3.9-slim
+
+# Set working directory
+WORKDIR /feast
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Feast and dependencies
+RUN pip install --no-cache-dir \
+    feast==0.34.1 \
+    redis==5.0.1 \
+    psycopg2-binary==2.9.9 \
+    pandas==2.0.3 \
+    numpy==1.24.3
+
+# Copy feast configuration
+COPY feast/ /feast/
+
+# Create data directory
+RUN mkdir -p /data
+
+# Set environment variables
+ENV PYTHONPATH=/feast
+ENV PYTHONUNBUFFERED=1
+
+# Expose Feast server port
+EXPOSE 6566
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:6566/health || exit 1
+
+# Default command
+CMD ["feast", "serve", "--host", "0.0.0.0", "--port", "6566"]

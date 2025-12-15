@@ -1,0 +1,156 @@
+version: '3.8'
+
+services:
+  # PostgreSQL for offline feature store
+  postgres:
+    image: postgres:15-alpine
+    container_name: rideshare-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-rideshare_features}
+      POSTGRES_USER: ${POSTGRES_USER:-feast_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-feast_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./data/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-feast_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rideshare-network
+
+  # Redis for online feature store
+  redis:
+    image: redis:7-alpine
+    container_name: rideshare-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rideshare-network
+
+  # Feast feature server
+  feast-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.feast
+    container_name: rideshare-feast-server
+    environment:
+      FEAST_REDIS_HOST: redis
+      FEAST_POSTGRES_HOST: postgres
+      FEAST_POSTGRES_DB: ${POSTGRES_DB:-rideshare_features}
+      FEAST_POSTGRES_USER: ${POSTGRES_USER:-feast_user}
+      FEAST_POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-feast_password}
+    ports:
+      - "6566:6566"  # Feast server port
+      - "8000:8000"  # Feature serving API
+    volumes:
+      - ./feature_repo:/feast/feature_repo
+      - ./data:/feast/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - rideshare-network
+
+  # Jupyter notebook for interactive development
+  jupyter:
+    build:
+      context: .
+      dockerfile: Dockerfile.jupyter
+    container_name: rideshare-jupyter
+    environment:
+      JUPYTER_ENABLE_LAB: "yes"
+      FEAST_REDIS_HOST: redis
+      FEAST_POSTGRES_HOST: postgres
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./notebooks:/home/jovyan/work
+      - ./feature_repo:/home/jovyan/feature_repo
+      - ./data:/home/jovyan/data
+    depends_on:
+      - feast-server
+    networks:
+      - rideshare-network
+
+  # Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: rideshare-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - rideshare-network
+
+  # Grafana for monitoring dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: rideshare-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin123}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+    networks:
+      - rideshare-network
+
+  # Data generator for sample data
+  data-generator:
+    build:
+      context: .
+      dockerfile: Dockerfile.datagen
+    container_name: rideshare-data-generator
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-rideshare_features}
+      POSTGRES_USER: ${POSTGRES_USER:-feast_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-feast_password}
+      REDIS_HOST: redis
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - rideshare-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  rideshare-network:
+    driver: bridge

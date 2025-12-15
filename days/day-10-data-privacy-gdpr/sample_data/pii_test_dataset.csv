@@ -1,0 +1,11 @@
+user_id,email,phone,ssn,credit_card,first_name,last_name,age,zip_code,salary,medical_condition,ip_address,address
+1,john.doe@email.com,555-123-4567,123-45-6789,4532-1234-5678-9012,John,Doe,28,12345,75000,diabetes,192.168.1.100,"123 Main St, Anytown, ST"
+2,jane.smith@company.com,555-234-5678,234-56-7890,5555-4444-3333-2222,Jane,Smith,34,67890,85000,hypertension,10.0.0.1,"456 Oak Ave, Somewhere, ST"
+3,bob.wilson@gmail.com,555-345-6789,345-67-8901,4111-1111-1111-1111,Bob,Wilson,42,11111,95000,none,172.16.0.1,"789 Pine Rd, Elsewhere, ST"
+4,alice.brown@yahoo.com,555-456-7890,456-78-9012,4000-0000-0000-0002,Alice,Brown,29,22222,72000,asthma,203.0.113.1,"321 Elm St, Nowhere, ST"
+5,charlie.davis@outlook.com,555-567-8901,567-89-0123,3782-822463-10005,Charlie,Davis,36,33333,88000,diabetes,198.51.100.1,"654 Maple Dr, Anywhere, ST"
+6,diana.miller@email.com,555-678-9012,678-90-1234,6011-1111-1111-1117,Diana,Miller,31,44444,79000,none,203.0.113.2,"987 Cedar Ln, Someplace, ST"
+7,frank.garcia@company.com,555-789-0123,789-01-2345,3530-1113-3330-0000,Frank,Garcia,45,55555,92000,hypertension,192.0.2.1,"147 Birch Way, Everytown, ST"
+8,grace.lee@gmail.com,555-890-1234,890-12-3456,3566-0020-2036-0505,Grace,Lee,27,66666,74000,none,198.51.100.2,"258 Spruce Ct, Alltown, ST"
+9,henry.taylor@email.com,555-901-2345,901-23-4567,5105-1051-0510-5100,Henry,Taylor,39,77777,86000,diabetes,203.0.113.3,"369 Willow St, Hometown, ST"
+10,ivy.johnson@company.com,555-012-3456,012-34-5678,4222-2222-2222-2,Ivy,Johnson,33,88888,81000,asthma,192.168.1.200,"741 Poplar Ave, Yourtown, ST"

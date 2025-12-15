@@ -1,0 +1,6 @@
+user_id,email,first_name,last_name,created_at,status
+1,john.doe@example.com,John,Doe,2024-01-01T10:00:00Z,active
+2,jane.smith@example.com,Jane,Smith,2024-01-01T11:00:00Z,active
+3,bob.johnson@example.com,Bob,Johnson,2024-01-01T12:00:00Z,inactive
+4,alice.brown@example.com,Alice,Brown,2024-01-01T13:00:00Z,active
+5,charlie.wilson@example.com,Charlie,Wilson,2024-01-01T14:00:00Z,active

@@ -1,0 +1,34 @@
+# Day 43: Tokenization Strategies - Requirements
+
+# Core Libraries
+numpy>=1.21.0
+pandas>=1.3.0
+
+# Text Processing
+unicodedata2>=14.0.0  # Enhanced Unicode support
+regex>=2022.1.18      # Advanced regex for text processing
+
+# Tokenization Libraries (Optional - for comparison)
+# tokenizers>=0.13.0    # Hugging Face fast tokenizers
+# sentencepiece>=0.1.97 # Google SentencePiece
+
+# Visualization
+matplotlib>=3.5.0
+seaborn>=0.11.0
+
+# Performance and Caching
+cachetools>=5.0.0
+psutil>=5.8.0
+
+# Testing and Development
+pytest>=7.0.0
+pytest-cov>=4.0.0
+pytest-benchmark>=4.0.0
+
+# Development Tools
+black>=22.0.0
+flake8>=5.0.0
+
+# Jupyter (for interactive development)
+jupyter>=1.0.0
+ipykernel>=6.0.0

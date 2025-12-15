@@ -1,0 +1,6 @@
+product_id,name,category,price,stock_quantity,created_at
+1,Laptop Pro 15,Electronics,1299.99,25,2024-01-01T08:00:00Z
+2,Wireless Mouse,Electronics,29.99,150,2024-01-01T08:30:00Z
+3,Coffee Mug,Home,12.99,75,2024-01-01T09:00:00Z
+4,Running Shoes,Sports,89.99,40,2024-01-01T09:30:00Z
+5,Bluetooth Headphones,Electronics,149.99,20,2024-01-01T10:00:00Z

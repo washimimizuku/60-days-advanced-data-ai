@@ -1,0 +1,26 @@
+datacorp_governance:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: postgres
+      user: platform_user
+      password: secure_password
+      port: 5432
+      dbname: datacorp_platform
+      schema: public
+      threads: 4
+      keepalives_idle: 0
+      search_path: "public,staging,marts,compliance"
+    
+    prod:
+      type: postgres
+      host: postgres
+      user: platform_user
+      password: secure_password
+      port: 5432
+      dbname: datacorp_platform
+      schema: public
+      threads: 8
+      keepalives_idle: 0
+      search_path: "public,staging,marts,compliance"

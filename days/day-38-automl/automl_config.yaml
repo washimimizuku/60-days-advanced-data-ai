@@ -1,0 +1,117 @@
+# AutoML Configuration
+
+# General Settings
+general:
+  task_type: "classification"  # or "regression"
+  time_budget: 3600  # seconds
+  random_seed: 42
+  n_jobs: -1
+
+# Feature Engineering
+feature_engineering:
+  max_features: 1000
+  feature_selection_ratio: 0.8
+  enable_interactions: true
+  enable_polynomial: true
+  polynomial_degree: 2
+  enable_temporal: true
+  
+  # Medical domain specific
+  medical_features:
+    enable_bmi_categories: true
+    enable_age_groups: true
+    enable_bp_categories: true
+    enable_glucose_categories: true
+    enable_vital_ratios: true
+
+# Model Selection
+model_selection:
+  algorithms:
+    - random_forest
+    - gradient_boosting
+    - extra_trees
+    - xgboost
+    - lightgbm
+    - logistic_regression
+    - svm
+  
+  hyperparameter_optimization:
+    n_trials: 100
+    timeout_per_model: 600  # seconds
+    cv_folds: 5
+    scoring: "accuracy"  # or "neg_mean_squared_error" for regression
+    
+  # Optuna settings
+  optuna:
+    sampler: "TPE"
+    pruner: "MedianPruner"
+    study_direction: "maximize"
+
+# Ensemble Configuration
+ensemble:
+  enable: true
+  max_ensemble_size: 5
+  ensemble_method: "voting"  # or "stacking"
+  voting_type: "soft"  # or "hard"
+  
+  # Stacking configuration
+  stacking:
+    meta_learner: "logistic_regression"
+    use_probas: true
+    cv_folds: 3
+
+# AutoML Frameworks
+frameworks:
+  h2o:
+    enable: true
+    max_runtime_secs: 1800
+    max_models: 20
+    nthreads: -1
+    max_mem_size: "4G"
+    
+  autogluon:
+    enable: true
+    time_limit: 1800
+    quality: "good_quality_faster_inference"
+    # Options: "good_quality_faster_inference", "high_quality", "best_quality"
+    
+  flaml:
+    enable: false
+    time_budget: 1800
+    metric: "accuracy"
+
+# Validation and Evaluation
+validation:
+  test_size: 0.2
+  validation_size: 0.2
+  stratify: true
+  cv_method: "StratifiedKFold"
+  cv_folds: 5
+  
+  # Performance thresholds
+  thresholds:
+    min_accuracy: 0.8
+    min_precision: 0.8
+    min_recall: 0.8
+    min_f1: 0.8
+
+# Model Interpretation
+interpretation:
+  enable_feature_importance: true
+  enable_shap: false  # Computationally expensive
+  enable_lime: false  # For individual predictions
+  top_features: 20
+
+# Output and Logging
+output:
+  model_save_path: "./models/"
+  report_save_path: "./reports/"
+  log_level: "INFO"
+  save_intermediate_results: true
+  
+# Production Settings
+production:
+  enable_model_compression: false
+  enable_quantization: false
+  max_model_size_mb: 100
+  max_prediction_latency_ms: 100

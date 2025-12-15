@@ -1,0 +1,40 @@
+name: 'innovatecorp_analytics_toolkit'
+version: '2.1.0'
+config-version: 2
+
+require-dbt-version: ">=1.0.0"
+
+profile: 'innovatecorp'
+
+macro-paths: ["macros"]
+model-paths: ["models"]
+analysis-paths: ["analysis"]
+test-paths: ["tests"]
+
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  innovatecorp_analytics_toolkit:
+    examples:
+      +materialized: view
+      +tags: ["example", "analytics_toolkit"]
+
+vars:
+  # Attribution modeling settings
+  attribution_window_days: 30
+  attribution_models: ['first_touch', 'last_touch', 'linear', 'time_decay']
+  
+  # Cohort analysis settings
+  cohort_periods: ['week', 'month', 'quarter']
+  retention_periods: [1, 7, 14, 30, 60, 90, 180, 365]
+  
+  # CLV modeling settings
+  clv_prediction_horizon_months: 12
+  clv_discount_rate: 0.1
+  clv_confidence_threshold: 0.7
+  
+  # Customer segmentation thresholds
+  high_value_threshold: 5000
+  medium_value_threshold: 1000
+  low_value_threshold: 100

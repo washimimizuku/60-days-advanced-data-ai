@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  localstack:
+    image: localstack/localstack:3.0
+    container_name: kinesis-localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=kinesis,firehose,lambda,s3,sns,cloudwatch,iam,dynamodb
+      - DEBUG=1
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - LAMBDA_EXECUTOR=docker
+      - LOCALSTACK_HOST=localhost
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "./scripts/init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh"
+    networks:
+      - kinesis-network
+
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: kinesis-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - kinesis-network
+
+  grafana:
+    image: grafana/grafana:10.0.0
+    container_name: kinesis-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - ./monitoring/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+      - ./monitoring/grafana-dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml
+      - ./monitoring/dashboards:/var/lib/grafana/dashboards
+    networks:
+      - kinesis-network
+
+networks:
+  kinesis-network:
+    driver: bridge

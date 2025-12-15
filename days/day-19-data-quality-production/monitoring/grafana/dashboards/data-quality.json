@@ -1,0 +1,65 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Data Quality Dashboard",
+    "tags": ["data_quality", "production"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Overall Quality Score",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "avg(data_quality_score)",
+            "legendFormat": "Quality Score"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "yellow", "value": 80},
+                {"color": "green", "value": 95}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Quality Trends",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "data_quality_score",
+            "legendFormat": "{{dataset}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Failed Expectations",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "failed_expectations",
+            "format": "table"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8}
+      }
+    ],
+    "time": {
+      "from": "now-24h",
+      "to": "now"
+    },
+    "refresh": "1m"
+  }
+}

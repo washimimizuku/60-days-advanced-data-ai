@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: qualityfirst_data
+      POSTGRES_USER: quality_user
+      POSTGRES_PASSWORD: quality_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./data/sample_data.sql:/docker-entrypoint-initdb.d/sample_data.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quality_user -d qualityfirst_data"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  great_expectations:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: qualityfirst_data
+      POSTGRES_USER: quality_user
+      POSTGRES_PASSWORD: quality_password
+    volumes:
+      - ./great_expectations:/app/great_expectations
+      - ./data:/app/data
+      - ./monitoring:/app/monitoring
+    working_dir: /app
+    command: tail -f /dev/null
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana:/etc/grafana/provisioning
+
+volumes:
+  postgres_data:
+  grafana_data:

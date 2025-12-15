@@ -1,0 +1,15 @@
+# Day 41: Transformer Architecture - Dependencies
+
+# Core ML Libraries
+torch==2.1.0
+numpy==1.24.3
+
+# Visualization
+matplotlib==3.8.2
+seaborn==0.13.0
+
+# Utilities
+tqdm==4.66.1
+
+# Testing
+pytest==7.4.3

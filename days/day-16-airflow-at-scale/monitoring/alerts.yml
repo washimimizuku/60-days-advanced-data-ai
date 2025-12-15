@@ -1,0 +1,172 @@
+groups:
+  - name: airflow_scheduler_alerts
+    rules:
+      - alert: AirflowSchedulerDown
+        expr: up{job="airflow-scheduler"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Airflow scheduler is down"
+          description: "Airflow scheduler {{ $labels.instance }} has been down for more than 1 minute."
+
+      - alert: AirflowSchedulerHighCPU
+        expr: rate(process_cpu_seconds_total{job="airflow-scheduler"}[5m]) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Airflow scheduler high CPU usage"
+          description: "Airflow scheduler {{ $labels.instance }} CPU usage is above 80% for more than 5 minutes."
+
+      - alert: AirflowDAGFailureRate
+        expr: rate(airflow_dag_run_failed_total[1h]) / rate(airflow_dag_run_total[1h]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High DAG failure rate"
+          description: "DAG failure rate is above 10% for the last hour."
+
+      - alert: AirflowSchedulerHeartbeat
+        expr: time() - airflow_scheduler_heartbeat > 300
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Airflow scheduler heartbeat missing"
+          description: "Airflow scheduler heartbeat has not been updated for more than 5 minutes."
+
+  - name: airflow_worker_alerts
+    rules:
+      - alert: AirflowWorkerDown
+        expr: up{job="airflow-workers"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Airflow worker is down"
+          description: "Airflow worker {{ $labels.instance }} has been down for more than 2 minutes."
+
+      - alert: AirflowTaskQueueHigh
+        expr: airflow_celery_queue_length > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High task queue length"
+          description: "Celery task queue length is {{ $value }}, above threshold of 100."
+
+      - alert: AirflowWorkerHighMemory
+        expr: process_resident_memory_bytes{job="airflow-workers"} / 1024 / 1024 / 1024 > 4
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Airflow worker high memory usage"
+          description: "Airflow worker {{ $labels.instance }} is using more than 4GB of memory."
+
+      - alert: AirflowTaskFailureSpike
+        expr: rate(airflow_task_instance_failed_total[5m]) > 0.5
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High task failure rate"
+          description: "Task failure rate is {{ $value }} failures per second over the last 5 minutes."
+
+  - name: airflow_webserver_alerts
+    rules:
+      - alert: AirflowWebserverDown
+        expr: up{job="airflow-webserver"} == 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Airflow webserver is down"
+          description: "Airflow webserver {{ $labels.instance }} has been down for more than 1 minute."
+
+      - alert: AirflowWebserverHighResponseTime
+        expr: histogram_quantile(0.95, rate(airflow_request_duration_seconds_bucket[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Airflow webserver high response time"
+          description: "95th percentile response time is {{ $value }} seconds, above 5 second threshold."
+
+  - name: infrastructure_alerts
+    rules:
+      - alert: RedisDown
+        expr: up{job="redis-cluster"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis instance is down"
+          description: "Redis instance {{ $labels.instance }} has been down for more than 1 minute."
+
+      - alert: RedisHighMemoryUsage
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis high memory usage"
+          description: "Redis instance {{ $labels.instance }} memory usage is above 90%."
+
+      - alert: PostgreSQLDown
+        expr: up{job="postgres-cluster"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL instance is down"
+          description: "PostgreSQL instance {{ $labels.instance }} has been down for more than 1 minute."
+
+      - alert: PostgreSQLHighConnections
+        expr: pg_stat_database_numbackends / pg_settings_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL high connection usage"
+          description: "PostgreSQL instance {{ $labels.instance }} is using more than 80% of available connections."
+
+      - alert: PostgreSQLReplicationLag
+        expr: pg_replication_lag_seconds > 300
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL replication lag"
+          description: "PostgreSQL replication lag is {{ $value }} seconds, above 5 minute threshold."
+
+  - name: performance_alerts
+    rules:
+      - alert: AirflowTaskDurationHigh
+        expr: histogram_quantile(0.95, rate(airflow_task_duration_seconds_bucket[10m])) > 3600
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High task duration"
+          description: "95th percentile task duration is {{ $value }} seconds, above 1 hour threshold."
+
+      - alert: AirflowDAGProcessingTime
+        expr: airflow_dag_processing_total_parse_time > 300
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High DAG processing time"
+          description: "DAG processing time is {{ $value }} seconds, above 5 minute threshold."
+
+      - alert: AirflowPoolSlotUtilization
+        expr: airflow_pool_running_slots / airflow_pool_total_slots > 0.9
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High pool slot utilization"
+          description: "Pool {{ $labels.pool }} slot utilization is above 90%."

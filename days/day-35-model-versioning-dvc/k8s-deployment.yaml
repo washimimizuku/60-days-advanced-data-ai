@@ -1,0 +1,125 @@
+# Day 35: Model Versioning with DVC - Kubernetes Deployment
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: healthtech-ml-pipeline
+  labels:
+    app: healthtech-ml
+    version: v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: healthtech-ml
+  template:
+    metadata:
+      labels:
+        app: healthtech-ml
+        version: v1
+    spec:
+      containers:
+      - name: ml-pipeline
+        image: healthtech/ml-pipeline:latest
+        ports:
+        - containerPort: 8000
+          name: api
+        - containerPort: 5000
+          name: mlflow
+        env:
+        - name: MLFLOW_TRACKING_URI
+          value: "postgresql://mlflow:password@postgres:5432/mlflow"
+        - name: DVC_REMOTE_URL
+          value: "s3://healthtech-ml-artifacts"
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: aws-credentials
+              key: access-key-id
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: aws-credentials
+              key: secret-access-key
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - name: model-storage
+          mountPath: /app/models
+        - name: data-storage
+          mountPath: /app/data
+      volumes:
+      - name: model-storage
+        persistentVolumeClaim:
+          claimName: model-storage-pvc
+      - name: data-storage
+        persistentVolumeClaim:
+          claimName: data-storage-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: healthtech-ml-service
+spec:
+  selector:
+    app: healthtech-ml
+  ports:
+  - name: api
+    port: 80
+    targetPort: 8000
+  - name: mlflow
+    port: 5000
+    targetPort: 5000
+  type: LoadBalancer
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-storage-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data-storage-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: aws-credentials
+type: Opaque
+data:
+  access-key-id: <base64-encoded-access-key>
+  secret-access-key: <base64-encoded-secret-key>

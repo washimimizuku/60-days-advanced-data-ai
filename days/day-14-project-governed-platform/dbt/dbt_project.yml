@@ -1,0 +1,53 @@
+name: 'datacorp_governance'
+version: '1.0.0'
+config-version: 2
+
+profile: 'datacorp_governance'
+
+model-paths: ["models"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  datacorp_governance:
+    # Staging models - clean and standardize
+    staging:
+      +materialized: view
+      +schema: staging
+      +tags: ['staging', 'pii_scan']
+    
+    # Intermediate models - business logic
+    intermediate:
+      +materialized: ephemeral
+      +tags: ['intermediate']
+    
+    # Marts models - final analytics tables
+    marts:
+      +materialized: table
+      +schema: marts
+      +tags: ['marts', 'governance']
+      core:
+        +schema: core
+      compliance:
+        +schema: compliance
+        +tags: ['compliance', 'gdpr']
+
+# Global variables
+vars:
+  start_date: '2024-01-01'
+  pii_hash_salt: 'datacorp_secure_salt_2024'
+  retention_years: 7
+  
+# Governance hooks
+on-run-start:
+  - "{{ log('Starting governed data pipeline at ' ~ run_started_at, info=true) }}"
+  
+on-run-end:
+  - "{{ log('Completed governed data pipeline at ' ~ run_started_at, info=true) }}"

@@ -1,0 +1,26 @@
+# Day 13: dbt Basics
+# Production-ready dbt environment
+
+# Core dbt
+dbt-core>=1.7.0,<2.0.0
+dbt-postgres>=1.7.0,<2.0.0
+
+# Database drivers
+psycopg2-binary==2.9.9        # PostgreSQL driver
+
+# Data processing and validation
+pandas>=2.0.0,<3.0.0          # Data manipulation
+great-expectations>=0.18.0     # Data quality validation
+
+# Development and testing
+pytest>=7.4.0                 # Testing framework
+pytest-dbt>=0.1.0             # dbt testing utilities
+
+# Utilities
+python-dotenv>=1.0.0          # Environment management
+pyyaml>=6.0                   # YAML processing
+jinja2>=3.1.0                 # Template engine
+
+# Optional: Additional dbt packages
+# dbt-utils (installed via packages.yml)
+# dbt-expectations (installed via packages.yml)

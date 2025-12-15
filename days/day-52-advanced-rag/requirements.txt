@@ -1,0 +1,59 @@
+# Day 52: Advanced RAG - Production Dependencies
+
+# Core RAG and ML libraries
+numpy>=1.21.0
+scipy>=1.7.0
+scikit-learn>=1.0.0
+
+# Vector databases and search
+faiss-cpu>=1.7.0
+chromadb>=0.4.0
+pinecone-client>=2.2.0
+weaviate-client>=3.15.0
+
+# Embedding models
+sentence-transformers>=2.2.0
+transformers>=4.20.0
+torch>=1.12.0
+
+# Text processing and search
+rank-bm25>=0.2.2
+nltk>=3.8
+spacy>=3.4.0
+
+# Async and performance
+asyncio-throttle>=1.0.2
+aiohttp>=3.8.0
+uvloop>=0.17.0
+
+# Caching and storage
+redis>=4.3.0
+diskcache>=5.4.0
+
+# Monitoring and metrics
+prometheus-client>=0.14.0
+structlog>=22.1.0
+
+# API and web framework
+fastapi>=0.95.0
+uvicorn>=0.20.0
+pydantic>=1.10.0
+
+# Development and testing
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+pytest-benchmark>=4.0.0
+black>=22.0.0
+flake8>=5.0.0
+
+# Data processing
+pandas>=1.5.0
+datasets>=2.8.0
+
+# Configuration management
+python-dotenv>=0.19.0
+pyyaml>=6.0
+
+# Optional: Production deployment
+gunicorn>=20.1.0
+docker>=6.0.0

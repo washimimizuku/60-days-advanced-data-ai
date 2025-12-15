@@ -1,0 +1,152 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "DataCorp Governance Dashboard",
+    "tags": ["governance", "compliance", "data-quality"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "GDPR Compliance Score",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "gdpr_compliance_score",
+            "legendFormat": "Compliance %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "yellow", "value": 85},
+                {"color": "green", "value": 95}
+              ]
+            },
+            "unit": "percent"
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Data Quality Score",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0},
+        "targets": [
+          {
+            "expr": "data_quality_score",
+            "legendFormat": "Quality %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "yellow", "value": 80},
+                {"color": "green", "value": 95}
+              ]
+            },
+            "unit": "percent"
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Pipeline Success Rate",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0},
+        "targets": [
+          {
+            "expr": "pipeline_success_rate",
+            "legendFormat": "Success %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "yellow", "value": 90},
+                {"color": "green", "value": 98}
+              ]
+            },
+            "unit": "percent"
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "PII Protection Status",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0},
+        "targets": [
+          {
+            "expr": "pii_protection_score",
+            "legendFormat": "Protected %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "yellow", "value": 95},
+                {"color": "green", "value": 99}
+              ]
+            },
+            "unit": "percent"
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Compliance Violations Over Time",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "targets": [
+          {
+            "expr": "compliance_violations_total",
+            "legendFormat": "Total Violations"
+          },
+          {
+            "expr": "gdpr_violations_total",
+            "legendFormat": "GDPR Violations"
+          }
+        ],
+        "yAxes": [
+          {"label": "Count", "min": 0},
+          {"show": false}
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Data Processing Volume",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "targets": [
+          {
+            "expr": "data_records_processed_total",
+            "legendFormat": "Records Processed"
+          },
+          {
+            "expr": "pii_records_protected_total",
+            "legendFormat": "PII Records Protected"
+          }
+        ],
+        "yAxes": [
+          {"label": "Records", "min": 0},
+          {"show": false}
+        ]
+      }
+    ],
+    "time": {"from": "now-24h", "to": "now"},
+    "refresh": "30s"
+  }
+}

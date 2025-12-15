@@ -1,0 +1,42 @@
+# Environment files
+.env
+.env.local
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Data files (optional - keep sample data)
+# sample_data/
+
+# Docker volumes
+elasticsearch_data/
+mysql_data/
+
+# Generated reports
+data_quality_report.json
+governance_report.json
+
+# Temporary files
+*.tmp
+*.temp

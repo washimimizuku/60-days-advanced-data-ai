@@ -1,0 +1,82 @@
+# Day 21: Testing Strategies - Docker Environment
+version: '3.8'
+
+services:
+  # PostgreSQL database for testing
+  postgres:
+    image: postgres:15-alpine
+    container_name: day21_postgres
+    environment:
+      POSTGRES_DB: testing_db
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpass123
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./data/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testuser -d testing_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Testing environment
+  testing-env:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: day21_testing
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://testuser:testpass123@postgres:5432/testing_db
+      - PYTHONPATH=/app
+      - TESTING_MODE=true
+    volumes:
+      - .:/app
+      - ./test_results:/app/test_results
+      - ./test_baselines:/app/test_baselines
+    working_dir: /app
+    command: tail -f /dev/null
+    ports:
+      - "8888:8888"  # Jupyter notebook
+      - "8000:8000"  # Test dashboard
+
+  # Test results dashboard
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: day21_grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - postgres
+
+  # Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: day21_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+
+volumes:
+  postgres_data:
+  grafana_data:
+  prometheus_data:

@@ -1,0 +1,38 @@
+version: '3.8'
+
+# Day 17: dbt Deep Dive - Development Environment
+# PostgreSQL database with sample data for dbt development
+
+services:
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: datacorp_dev
+      POSTGRES_USER: dbt_user
+      POSTGRES_PASSWORD: dbt_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sample_data:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dbt_user -d datacorp_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  dbt:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DBT_PROFILES_DIR: /app
+      DBT_PROJECT_DIR: /app/dbt_project
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: tail -f /dev/null
+
+volumes:
+  postgres_data:

@@ -1,0 +1,209 @@
+version: '3.8'
+
+services:
+  # PostgreSQL for feature store offline storage
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: ml_platform_db
+      POSTGRES_USER: ml_user
+      POSTGRES_PASSWORD: ml_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ml_user -d ml_platform_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for feature store online storage
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MLflow for model tracking and registry
+  mlflow:
+    image: python:3.9-slim
+    ports:
+      - "5000:5000"
+    environment:
+      - MLFLOW_BACKEND_STORE_URI=postgresql://ml_user:ml_pass@postgres:5432/ml_platform_db
+      - MLFLOW_DEFAULT_ARTIFACT_ROOT=/mlflow/artifacts
+    volumes:
+      - mlflow_artifacts:/mlflow/artifacts
+      - ./requirements.txt:/app/requirements.txt
+    working_dir: /app
+    command: >
+      bash -c "
+        pip install mlflow psycopg2-binary &&
+        mlflow server 
+          --backend-store-uri postgresql://ml_user:ml_pass@postgres:5432/ml_platform_db
+          --default-artifact-root /mlflow/artifacts
+          --host 0.0.0.0
+          --port 5000
+      "
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Feast Feature Store Server
+  feast-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.feast
+    ports:
+      - "6566:6566"
+    environment:
+      - FEAST_REDIS_HOST=redis
+      - FEAST_POSTGRES_HOST=postgres
+      - FEAST_POSTGRES_USER=ml_user
+      - FEAST_POSTGRES_PASSWORD=ml_pass
+      - FEAST_POSTGRES_DB=ml_platform_db
+    volumes:
+      - ./feast:/feast
+      - ./data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      bash -c "
+        cd /feast &&
+        feast apply &&
+        feast serve --host 0.0.0.0 --port 6566
+      "
+
+  # ML Platform API Server
+  ml-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://ml_user:ml_pass@postgres:5432/ml_platform_db
+      - REDIS_URL=redis://redis:6379
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - FEAST_SERVER_URL=http://feast-server:6566
+    volumes:
+      - ./models:/app/models
+      - ./data:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mlflow:
+        condition: service_healthy
+      feast-server:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Model Training Service
+  model-trainer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://ml_user:ml_pass@postgres:5432/ml_platform_db
+      - REDIS_URL=redis://redis:6379
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - FEAST_SERVER_URL=http://feast-server:6566
+      - TRAINING_MODE=true
+    volumes:
+      - ./models:/app/models
+      - ./data:/app/data
+      - ./logs:/app/logs
+    command: python model_trainer.py
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mlflow:
+        condition: service_healthy
+
+  # Data Generator Service
+  data-generator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://ml_user:ml_pass@postgres:5432/ml_platform_db
+      - REDIS_URL=redis://redis:6379
+      - FEAST_SERVER_URL=http://feast-server:6566
+    volumes:
+      - ./data:/app/data
+    command: python data_generator.py
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Prometheus for monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+
+  # Load Balancer (nginx)
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - ml-api
+
+volumes:
+  postgres_data:
+  redis_data:
+  mlflow_artifacts:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  default:
+    name: ml_platform_network

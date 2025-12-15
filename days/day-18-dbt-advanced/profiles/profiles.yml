@@ -1,0 +1,25 @@
+innovatecorp:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: postgres
+      user: dbt_user
+      password: dbt_password
+      port: 5432
+      dbname: innovatecorp_analytics
+      schema: analytics_dev
+      threads: 4
+      keepalives_idle: 0
+      search_path: "analytics_dev"
+    
+    prod:
+      type: postgres
+      host: "{{ env_var('POSTGRES_HOST') }}"
+      user: "{{ env_var('POSTGRES_USER') }}"
+      password: "{{ env_var('POSTGRES_PASSWORD') }}"
+      port: 5432
+      dbname: "{{ env_var('POSTGRES_DB') }}"
+      schema: analytics_prod
+      threads: 8
+      keepalives_idle: 0

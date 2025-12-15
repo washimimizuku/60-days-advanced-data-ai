@@ -1,0 +1,76 @@
+# Automated Retraining Configuration
+
+# Model configuration
+model:
+  name: "ecommerce_recommendation_model"
+  version: "latest"
+  
+# Retraining triggers
+triggers:
+  # Data drift triggers
+  data_drift:
+    threshold: 0.2  # PSI threshold for triggering retraining
+    critical_features:
+      - user_age
+      - cart_value
+      - session_duration
+      - product_price
+    
+  # Performance degradation triggers
+  performance_degradation:
+    ctr: 0.03          # Click-through rate threshold
+    conversion_rate: 0.02  # Conversion rate threshold
+    auc: 0.75          # AUC threshold
+    
+  # Time-based triggers
+  time_based:
+    max_age_days: 7    # Maximum days since last training
+    
+  # Manual trigger (for emergency retraining)
+  manual_trigger:
+    enabled: true
+
+# Retraining strategies
+strategies:
+  # Full model retraining
+  full_retrain:
+    drift_threshold: 0.5
+    min_training_samples: 10000
+    validation_split: 0.2
+    early_stopping_patience: 10
+    
+  # Incremental model update
+  incremental_update:
+    drift_threshold: 0.3
+    learning_rate_decay: 0.9
+    max_epochs: 50
+    
+  # Feature selection retraining
+  feature_selection:
+    drift_threshold: 0.1
+    feature_selection_method: "mutual_info"
+    max_features: 20
+
+# Execution scripts
+scripts:
+  full_retrain: "scripts/full_retrain.py"
+  incremental_update: "scripts/incremental_update.py"
+  feature_selection: "scripts/feature_selection_retrain.py"
+
+# Notification settings
+notifications:
+  slack:
+    webhook_url: "${SLACK_WEBHOOK_URL}"
+    channel: "#ml-alerts"
+  
+  email:
+    smtp_server: "${SMTP_SERVER}"
+    recipients:
+      - "ml-team@company.com"
+      - "data-team@company.com"
+
+# Monitoring settings
+monitoring:
+  drift_check_interval: 300  # seconds
+  alert_cooldown: 1800       # seconds
+  max_alerts_per_hour: 10

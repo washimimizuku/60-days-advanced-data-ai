@@ -1,0 +1,30 @@
+# Day 17: dbt Deep Dive - Production Dependencies
+
+# Core dbt with PostgreSQL adapter
+dbt-core==1.7.0
+dbt-postgres==1.7.0
+
+# Essential dbt packages (installed via packages.yml)
+# dbt-utils, dbt-expectations, audit-helper
+
+# Data processing and analysis
+pandas==2.1.0
+numpy==1.24.3
+
+# Database connectivity
+psycopg2-binary==2.9.7
+
+# Development and testing
+pytest==7.4.0
+great-expectations==0.17.0
+
+# Visualization for analysis
+matplotlib==3.7.2
+seaborn==0.12.2
+
+# Configuration management
+pyyaml==6.0.1
+
+# Jupyter for analysis
+jupyter==1.0.0
+ipykernel==6.25.0

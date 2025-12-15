@@ -1,0 +1,154 @@
+# Day 54: Production RAG System - Docker Compose Configuration
+
+version: '3.8'
+
+services:
+  # Main RAG Application
+  rag-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-text-embedding-ada-002}
+      - LLM_MODEL=${LLM_MODEL:-gpt-3.5-turbo}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - VECTOR_DB_PATH=/app/data/vectordb
+      - DOCUMENTS_PATH=/app/data/documents
+      - REDIS_URL=redis://redis:6379/0
+      - PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - prometheus_data:/tmp/prometheus
+    depends_on:
+      - redis
+      - prometheus
+    networks:
+      - rag-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Redis for Caching
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - rag-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Prometheus for Metrics
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - rag-network
+    restart: unless-stopped
+
+  # Grafana for Visualization
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - rag-network
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+  # Vector Database (ChromaDB)
+  chromadb:
+    image: chromadb/chroma:latest
+    ports:
+      - "8001:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      - CHROMA_SERVER_HOST=0.0.0.0
+      - CHROMA_SERVER_HTTP_PORT=8000
+    networks:
+      - rag-network
+    restart: unless-stopped
+
+  # Document Processing Worker (Optional)
+  doc-processor:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DOCUMENTS_PATH=/app/data/documents
+      - VECTOR_DB_PATH=/app/data/vectordb
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - redis
+      - rag-api
+    networks:
+      - rag-network
+    restart: unless-stopped
+    deploy:
+      replicas: 2
+
+  # Nginx Load Balancer (Optional)
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - rag-api
+    networks:
+      - rag-network
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  chroma_data:
+    driver: local
+
+networks:
+  rag-network:
+    driver: bridge

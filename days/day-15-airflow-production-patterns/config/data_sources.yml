@@ -1,0 +1,183 @@
+# TechCorp Data Sources Configuration
+# This file drives dynamic DAG generation for all data pipelines
+
+data_sources:
+  - name: "customer_data"
+    source_type: "api"
+    source_config:
+      url: "https://api.techcorp.com/customers"
+      auth_type: "bearer"
+      headers:
+        Content-Type: "application/json"
+      timeout: 30
+      retry_attempts: 3
+    target_table: "customers"
+    schedule_interval: "@hourly"
+    priority: 9
+    expected_volume_mb: 75
+    sla_hours: 2
+    quality_rules:
+      - type: "not_null"
+        columns: ["customer_id", "email"]
+        critical: true
+      - type: "unique"
+        columns: ["customer_id"]
+        critical: true
+      - type: "format"
+        column: "email"
+        pattern: "^[^@]+@[^@]+\\.[^@]+$"
+        critical: false
+    transformations:
+      - type: "email_normalize"
+      - type: "pii_hash"
+        columns: ["email", "phone"]
+      - type: "address_standardize"
+
+  - name: "transaction_data"
+    source_type: "database"
+    source_config:
+      connection_id: "postgres_transactions"
+      table: "raw_transactions"
+      incremental_column: "created_at"
+      batch_size: 10000
+    target_table: "transactions"
+    schedule_interval: "@daily"
+    priority: 7
+    expected_volume_mb: 500
+    sla_hours: 4
+    quality_rules:
+      - type: "not_null"
+        columns: ["transaction_id", "customer_id", "amount"]
+        critical: true
+      - type: "range"
+        column: "amount"
+        min: 0
+        max: 100000
+        critical: false
+      - type: "referential"
+        column: "customer_id"
+        ref_table: "customers"
+        critical: true
+    transformations:
+      - type: "currency_normalize"
+      - type: "fraud_scoring"
+      - type: "category_mapping"
+
+  - name: "product_catalog"
+    source_type: "file"
+    source_config:
+      file_path: "/data/products/catalog_{{ ds }}.csv"
+      format: "csv"
+      delimiter: ","
+      encoding: "utf-8"
+      header: true
+    target_table: "products"
+    schedule_interval: "@weekly"
+    priority: 4
+    expected_volume_mb: 25
+    sla_hours: 12
+    quality_rules:
+      - type: "not_null"
+        columns: ["product_id", "name", "price"]
+        critical: true
+      - type: "range"
+        column: "price"
+        min: 0
+        critical: false
+      - type: "enum"
+        column: "status"
+        values: ["active", "inactive", "discontinued"]
+        critical: false
+    transformations:
+      - type: "price_standardize"
+      - type: "category_hierarchy"
+      - type: "inventory_sync"
+
+  - name: "user_behavior_events"
+    source_type: "api"
+    source_config:
+      url: "https://events.techcorp.com/api/v1/events"
+      auth_type: "api_key"
+      batch_size: 10000
+      compression: "gzip"
+      rate_limit: 100
+    target_table: "user_events"
+    schedule_interval: "*/15 * * * *"  # Every 15 minutes
+    priority: 8
+    expected_volume_mb: 200
+    sla_hours: 1
+    quality_rules:
+      - type: "not_null"
+        columns: ["event_id", "user_id", "event_type", "timestamp"]
+        critical: true
+      - type: "enum"
+        column: "event_type"
+        values: ["click", "view", "purchase", "signup"]
+        critical: false
+      - type: "timestamp_range"
+        column: "timestamp"
+        max_age_hours: 24
+        critical: false
+    transformations:
+      - type: "event_deduplication"
+      - type: "session_stitching"
+      - type: "geo_enrichment"
+
+  - name: "partner_data"
+    source_type: "sftp"
+    source_config:
+      host: "sftp.partner.com"
+      username: "techcorp_user"
+      key_file: "/keys/partner_key.pem"
+      remote_path: "/exports/daily/"
+      file_pattern: "partner_data_{{ ds }}.json"
+      timeout: 300
+    target_table: "partner_integrations"
+    schedule_interval: "@daily"
+    priority: 5
+    expected_volume_mb: 150
+    sla_hours: 8
+    quality_rules:
+      - type: "not_null"
+        columns: ["partner_id", "integration_type"]
+        critical: true
+      - type: "json_schema"
+        schema_file: "/schemas/partner_schema.json"
+        critical: true
+      - type: "freshness"
+        max_age_hours: 48
+        critical: false
+    transformations:
+      - type: "json_flatten"
+      - type: "partner_mapping"
+      - type: "data_enrichment"
+
+# Pool configurations for resource management
+pools:
+  fast_processing_pool:
+    slots: 3
+    description: "High-priority, small data processing"
+  
+  standard_pool:
+    slots: 10
+    description: "Standard data processing"
+  
+  batch_processing_pool:
+    slots: 2
+    description: "Large data batch processing"
+  
+  monitoring_pool:
+    slots: 5
+    description: "Monitoring and alerting tasks"
+  
+  external_api_pool:
+    slots: 5
+    description: "External API calls"
+
+# Global settings
+settings:
+  default_retries: 2
+  default_retry_delay_minutes: 5
+  default_timeout_minutes: 30
+  max_active_runs: 1
+  catchup: false
